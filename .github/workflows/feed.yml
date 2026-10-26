@@ -1,0 +1,115 @@
+name: Update Edu-Kingdom feed
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/feed.yml'
+      - 'routes/**'
+      - 'prepare_feed.py'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: edu-kingdom-feed
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Restore previously built RSSHub image
+        id: image
+        uses: actions/cache/restore@v4
+        with:
+          path: .image-cache/rsshub.tar
+          key: rsshub-chromium-linux-amd64-242fe1b091bb412d23596d605f4434e684da99fd-${{ hashFiles('routes/**/*.ts') }}
+
+      - name: Get the tested RSSHub source revision
+        if: steps.image.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: DIYgod/RSSHub
+          ref: 242fe1b091bb412d23596d605f4434e684da99fd
+          path: vendor/rsshub
+          persist-credentials: false
+
+      - name: Build or load RSSHub with Chromium
+        env:
+          CACHE_HIT: ${{ steps.image.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          if [ "$CACHE_HIT" = 'true' ]; then
+            docker load --input .image-cache/rsshub.tar
+          else
+            cp -R routes/edu-kingdom vendor/rsshub/lib/routes/edu-kingdom
+            docker build --build-arg PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 --tag edu-kingdom-rsshub:feed vendor/rsshub
+            mkdir -p .image-cache
+            docker save --output .image-cache/rsshub.tar edu-kingdom-rsshub:feed
+          fi
+
+      - name: Save built image even if a later forum fetch fails
+        if: steps.image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .image-cache/rsshub.tar
+          key: ${{ steps.image.outputs.cache-primary-key }}
+
+      - name: Start RSSHub temporarily
+        run: |
+          docker run --detach --name rsshub --shm-size=1g \
+            --publish 127.0.0.1:1200:1200 \
+            --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=1800 \
+            --env CACHE_TYPE=memory --env NODE_ENV=production \
+            edu-kingdom-rsshub:feed
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 5 http://127.0.0.1:1200/healthz > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          [ "$ready" = true ]
+
+      - name: Fetch and validate new-topic feed
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          curl --fail --show-error --silent --max-time 90 \
+            http://127.0.0.1:1200/edu-kingdom/forum/368 --output raw-feed.xml
+          python3 prepare_feed.py raw-feed.xml public "$PAGES_BASE_URL"
+
+      - name: Upload the validated feed
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+          retention-days: 1
+
+      - name: Publish on GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Show diagnostics on failure
+        if: failure()
+        run: docker logs --tail 100 rsshub || true
+
+      - name: Stop the temporary container
+        if: always()
+        run: docker rm --force rsshub || true

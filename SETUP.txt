@@ -1,0 +1,53 @@
+FREE ONLINE FEED USING RSSHUB, GITHUB ACTIONS, AND GITHUB PAGES
+
+Status: prepared locally; no repository has been created or uploaded and
+no GitHub-hosted fetch has been tested. The same RSSHub route has successfully
+returned 30 topics in the earlier local Docker test.
+
+How it works
+GitHub Actions runs RSSHub with Chromium at minutes 17 and 47 of each hour.
+It saves the validated RSS output and publishes feed.xml through GitHub Pages.
+Your PC can be off. This hosts a periodically updated feed, not a continuously
+running public RSSHub API. Only the public feed and code are uploaded.
+No credentials, forum cookies, or private computer files are required.
+
+Free requirements
+Use a PUBLIC repository on GitHub Free and standard ubuntu-latest runners.
+GitHub documents free standard runner usage for public repositories and free
+Pages hosting for public repositories. This workflow uses a cached image,
+short-lived small Pages artifacts, no paid runner, and no paid host or registry.
+Repository and feed will be public. GitHub's plan limits and policies apply.
+
+Deployment
+1. Create a public GitHub repository named edu-kingdom-feed with main as its
+   default branch. Upload this folder's CONTENTS, including .github, to its root.
+   Do not upload this chat's other files, the installer, or Docker logs.
+2. In repository Settings > Pages, select GitHub Actions as the build source.
+3. In Actions, run "Update Edu-Kingdom feed" manually to test it.
+4. Check the job's success and published feed before subscribing.
+   Your feed URL will follow this pattern:
+   https://YOUR_GITHUB_USERNAME.github.io/edu-kingdom-feed/feed.xml
+   This is a template, not an existing deployed URL.
+
+Operation
+The first job builds RSSHub plus Chromium and caches the image. Later runs
+restore that image, start a temporary container, fetch the forum, and stop it.
+A build may take 15 minutes or more. Source is pinned to the locally tested
+RSSHub revision. Updating that revision requires changing both the ref and
+cache key in the workflow and checking compatibility with the route.
+Failed fetches or validation errors prevent publishing and leave the last
+successfully published feed available. Review Actions failures for stale feeds.
+
+Limits
+The forum may block GitHub's network even though the local test succeeded.
+This cannot be guaranteed until the first GitHub-hosted job succeeds.
+Schedules can be delayed or dropped. Public-repository schedules are disabled
+after 60 days without repository activity and may require re-enabling.
+Only the latest page of topics is fetched; long outages may miss topics.
+The first successful run publishes the existing latest batch as well.
+Use a reader that deduplicates stable GUIDs and mark that initial batch read.
+
+Official references
+https://docs.github.com/en/billing/concepts/product-billing/github-actions
+https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule

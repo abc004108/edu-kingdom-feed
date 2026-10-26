@@ -106,6 +106,24 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Inspect forum page on failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          docker exec -i rsshub node --input-type=module <<'JS'
+          import 'dotenv/config';
+          import { chromium } from 'patchright';
+          const browser = await chromium.launch({headless: true, executablePath: process.env.CHROMIUM_EXECUTABLE_PATH, args: ['--no-sandbox']});
+          try {
+            const page = await browser.newPage();
+            const response = await page.goto('https://www.edu-kingdom.com/forum.php?mod=forumdisplay&fid=368&filter=author&orderby=dateline', {waitUntil: 'domcontentloaded', timeout: 30000});
+            try { await page.waitForSelector('tbody[id^="normalthread_"] a.xst', {timeout: 20000}); } catch {}
+            console.log(JSON.stringify({status: response?.status(), url: page.url(), title: await page.title(), topicLinks: await page.locator('tbody[id^="normalthread_"] a.xst').count(), text: (await page.locator('body').innerText()).slice(0, 1200)}));
+          } finally {
+            await browser.close();
+          }
+          JS
+
       - name: Show diagnostics on failure
         if: failure()
         run: docker logs --tail 100 rsshub || true

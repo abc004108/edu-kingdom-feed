@@ -2,14 +2,8 @@ name: Update Edu-Kingdom feed
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17,47 * * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/feed.yml'
-      - 'routes/**'
-      - 'prepare_feed.py'
+  # Scheduled runs are disabled: the target returns HTTP 403 from GitHub runners.
+  # Restore schedule only after a successful manual collection test.
 
 permissions:
   contents: read

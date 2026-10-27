@@ -2,10 +2,12 @@ FREE ONLINE FEED USING RSSHUB, GITHUB ACTIONS, AND GITHUB PAGES
 
 Status: LIVE AND VERIFIED on 27 October 2026.
 Subscribe: https://abc004108.github.io/edu-kingdom-feed/feed.xml
-The public feed returned HTTP 200 with 30 unique topics and correct Chinese text.
+All five public forum feeds returned HTTP 200 with correct titles, unique thread
+GUIDs, intact Chinese text, and TTL 240 minutes. Counts were 30, 30, 27, 29, 29
+for forums 368, 7, 709, 715, and 6 respectively. All five were freshly updated.
 Repository: https://github.com/abc004108/edu-kingdom-feed
 The complete cloud publishing run succeeded:
-https://github.com/abc004108/edu-kingdom-feed/actions/runs/40424686682
+https://github.com/abc004108/edu-kingdom-feed/actions/runs/40426183193
 
 Earlier ordinary-browser tests encountered HTTP 403 security verification.
 A temporary FlareSolverr helper successfully retrieved the real forum, and the
@@ -14,9 +16,10 @@ the digest tested successfully. No paid proxy or CAPTCHA service is used.
 The helper is accessible only within the runner and private container network.
 
 How it works
-The enabled schedule runs RSSHub with its browser helper at minutes 17 and 47
-of each hour.
-It saves the validated RSS output and publishes feed.xml through GitHub Pages.
+The enabled schedule runs once every FOUR HOURS, around 00:17, 04:17, 08:17,
+12:17, 16:17, and 20:17 Hong Kong time. One RSSHub container and browser helper
+are started per run, and one browser session is reused across all forums.
+It publishes one validated RSS file per forum through GitHub Pages.
 Your PC can be off. This hosts a periodically updated feed, not a continuously
 running public RSSHub API. Only the public feed and code are uploaded.
 No personal credentials, copied forum cookies, or private computer files are
@@ -46,8 +49,16 @@ restore that image, start a temporary container, fetch the forum, and stop it.
 A build may take 15 minutes or more. Source is pinned to the locally tested
 RSSHub revision. Updating that revision requires changing both the ref and
 cache key in the workflow and checking compatibility with the route.
-Failed fetches or validation errors prevent publishing and leave the last
-successfully published feed available. Review Actions failures for stale feeds.
+If a forum fetch fails, its last validated published feed is kept while other
+forums update. status.json records which feeds were updated or preserved.
+If a newly added forum has never had a valid feed, the existing site is kept
+until all configured forums have a valid fresh or saved feed.
+
+Add or remove subscriptions by editing forums.json. Each entry needs an id and
+name. The current IDs are 368, 7, 709, 715, and 6. Each publishes at feeds/ID.xml.
+The original feed.xml remains an alias for 368, preserving existing subscriptions
+and item GUIDs. Import subscriptions.opml to subscribe to all configured forums.
+Configuration changes do not rebuild the cached RSSHub image.
 
 Limits
 The forum's security checks may change. Current GitHub-hosted collection has

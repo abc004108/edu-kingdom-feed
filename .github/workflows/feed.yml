@@ -6,7 +6,7 @@ on:
     - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'forums.json', 'tests/**']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'topic_times.py', 'forums.json', 'tests/**']
 
 permissions:
   contents: read
@@ -116,11 +116,25 @@ jobs:
           done
           [ "$ready" = true ]
 
+      - name: Restore verified original topic timestamps
+        uses: actions/cache/restore@v4
+        with:
+          path: .topic-cache/topic-times.json
+          key: topic-times-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: topic-times-v1-
+
       - name: Collect and validate all configured forum feeds
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
           python3 collect_feeds.py forums.json public "$PAGES_BASE_URL"
+
+      - name: Cache verified original topic timestamps
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .topic-cache/topic-times.json
+          key: topic-times-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload the validated feed
         uses: actions/upload-pages-artifact@v3

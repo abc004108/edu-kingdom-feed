@@ -1,4 +1,5 @@
 .image-cache/
+.topic-cache/
 vendor/
 public/
 raw-feed.xml

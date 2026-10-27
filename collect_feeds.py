@@ -40,7 +40,7 @@ def load_config(path):
     return forums
 
 
-def collect(forums, output, base_url, fetcher=fetch):
+def collect(forums, output, base_url, fetcher=fetch, timestamp_resolver=None):
     output = Path(output)
     base_url = base_url.rstrip('/')
     results, prepared, missing = [], [], []
@@ -68,7 +68,11 @@ def collect(forums, output, base_url, fetcher=fetch):
             state = 'preserved' if data is not None else 'missing'
             if data is None:
                 missing.append(f'{site}/{fid}')
-        results.append({'site': site, 'id': fid, 'name': name, 'path': path, 'state': state, 'error': error})
+        timing = {}
+        if data is not None and timestamp_resolver is not None:
+            data, resolved = timestamp_resolver.enrich(data)
+            timing = {'original_times': resolved, 'undated_items': len(ET.fromstring(data).findall('channel/item')) - resolved}
+        results.append({'site': site, 'id': fid, 'name': name, 'path': path, 'state': state, 'error': error, **timing})
         if data is not None:
             prepared.append((forum, data))
         print(json.dumps(results[-1], ensure_ascii=True), flush=True)
@@ -106,7 +110,12 @@ def write_opml(path, forums, base_url, title):
 
 
 if __name__ == '__main__':
+    from topic_times import TopicTimes
     config, output, base_url = sys.argv[1:]
-    results = collect(load_config(config), output, base_url)
+    times = TopicTimes('.topic-cache/topic-times.json')
+    results = collect(load_config(config), output, base_url, timestamp_resolver=times)
+    if times.failures:
+        print(f'::warning::{len(times.failures)} original timestamps unavailable; those items have no pubDate')
+        Path(output, 'timestamp-errors.json').write_text(json.dumps(times.failures, indent=2), encoding='utf-8')
     if any(result['state'] != 'updated' for result in results):
         print('::warning::Some forums retain their last successful feed; see public/status.json')

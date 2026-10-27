@@ -38,6 +38,8 @@ Runs are scheduled approximately 00:17, 04:17, 08:17, 12:17, 16:17, and 20:17 Ho
 
 All RSS `lastBuildDate` and `pubDate` timestamps use Hong Kong time with the standard numeric offset `+0800`. The conversion preserves the original instant, including when a saved feed is reused. `status.json` uses ISO timestamps with `+08:00` and identifies the timezone as `Asia/Hong_Kong`.
 
+Item publication times are verified from the original first post on page 1, in oldest-first order. The publisher caches these timestamps by permanent thread URL across Actions runs, so each topic normally needs one additional page request. Replies and edit timestamps are excluded. If the original time cannot be verified, that item's `pubDate` is omitted instead of substituting midnight; status reports `original_times` and `undated_items`. The first run backfills the current topics and takes longer. The feeds contain titles and links, not copied post bodies.
+
 If a forum fails, its last validated published feed is preserved while other forums update. Validation checks both site and forum ID. If a newly added forum has never produced a valid feed, publication stops and keeps the existing site intact.
 
 Only the latest page is collected; more than a page of new topics between runs or long interruptions can cause missed topics. The first subscription includes the current recent topics. GitHub may disable schedules after 60 days without repository activity; re-enable the workflow in Actions if needed.

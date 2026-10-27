@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import time
 from urllib.parse import urlparse, parse_qs
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
@@ -103,7 +104,21 @@ class TopicTimes:
         if link in self.values:
             return datetime.fromisoformat(self.values[link]).astimezone(HKT)
         self.attempts += 1
-        date = original_time(self.fetch_html(link))
+        date = None
+        # Flyert's public HTML is GBK. Read it directly before using the browser,
+        # reducing browser traffic and avoiding unnecessary session restrictions.
+        if parsed.hostname == 'www.flyert.com.cn':
+            try:
+                request = Request(link+'&page=1&ordertype=1', headers={'User-Agent':'Mozilla/5.0 (compatible; ForumFeedCollector/1.0)'})
+                with urlopen(request, timeout=20) as response:
+                    charset = response.headers.get_content_charset() or 'gbk'
+                    html = response.read().decode(charset)
+                date = original_time(html)
+                time.sleep(0.5)
+            except (OSError, ValueError, TimeoutError):
+                pass
+        if date is None:
+            date = original_time(self.fetch_html(link))
         self.values[link] = date.isoformat()
         self.save()
         return date

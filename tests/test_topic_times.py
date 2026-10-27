@@ -3,6 +3,7 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 import xml.etree.ElementTree as ET
 
 from topic_times import TopicTimes, original_time
@@ -10,6 +11,17 @@ from test_publishing import fixture
 
 
 class OriginalTimeTests(unittest.TestCase):
+    def test_flyert_direct_gbk_html_avoids_browser(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            response = MagicMock()
+            response.headers.get_content_charset.return_value = 'gbk'
+            response.read.return_value = '<em id="authorposton1">发表于 2026-10-27 18:19:42</em>'.encode('gbk')
+            response.__enter__.return_value = response
+            resolver = TopicTimes(Path(tmp, 'times.json'), lambda link: self.fail('Direct HTML should suffice'))
+            with patch('topic_times.urlopen', return_value=response), patch('topic_times.time.sleep'):
+                date = resolver.resolve('https://www.flyert.com.cn/forum.php?mod=viewthread&tid=123')
+            self.assertEqual(date.isoformat(), '2026-10-27T18:19:42+08:00')
+
     def test_first_post_beats_reply_and_edit_times(self):
         html = '''<div>Last edited 2026-10-28 20:10</div>
         <em id="authorposton123">發表於 <span title="2026-10-27 18:19:42">8 分鐘前</span></em>

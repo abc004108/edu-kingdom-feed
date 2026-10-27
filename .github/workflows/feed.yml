@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   # Scheduled runs are disabled: the target returns HTTP 403 from GitHub runners.
   # Restore schedule only after a successful manual collection test.
+  push:
+    branches: [main]
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py']
 
 permissions:
   contents: read
@@ -65,12 +68,31 @@ jobs:
           path: .image-cache/rsshub.tar
           key: ${{ steps.image.outputs.cache-primary-key }}
 
+      - name: Start browser helper on a private container network
+        run: |
+          docker network create forum-feed
+          docker run --detach --name browser-helper --network forum-feed \
+            --publish 127.0.0.1:8191:8191 --shm-size=1g \
+            --env LOG_LEVEL=warning --env CAPTCHA_SOLVER=none \
+            --env TZ=Asia/Hong_Kong \
+            ghcr.io/flaresolverr/flaresolverr@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
+          ready=false
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --max-time 3 http://127.0.0.1:8191/ > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          [ "$ready" = true ]
+
       - name: Start RSSHub temporarily
         run: |
-          docker run --detach --name rsshub --shm-size=1g \
+          docker run --detach --name rsshub --network forum-feed --shm-size=1g \
             --publish 127.0.0.1:1200:1200 \
             --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=1800 \
             --env CACHE_TYPE=memory --env NODE_ENV=production \
+            --env EDU_KINGDOM_BROWSER_HELPER=http://browser-helper:8191/v1 \
             edu-kingdom-rsshub:feed
           ready=false
           for attempt in $(seq 1 60); do
@@ -86,7 +108,7 @@ jobs:
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
-          curl --fail --show-error --silent --max-time 90 \
+          curl --fail --show-error --silent --max-time 110 \
             http://127.0.0.1:1200/edu-kingdom/forum/368 --output raw-feed.xml
           python3 prepare_feed.py raw-feed.xml public "$PAGES_BASE_URL"
 
@@ -120,8 +142,10 @@ jobs:
 
       - name: Show diagnostics on failure
         if: failure()
-        run: docker logs --tail 100 rsshub || true
+        run: |
+          docker logs --tail 100 rsshub || true
+          docker logs --tail 25 browser-helper || true
 
       - name: Stop the temporary container
         if: always()
-        run: docker rm --force rsshub || true
+        run: docker rm --force rsshub browser-helper || true

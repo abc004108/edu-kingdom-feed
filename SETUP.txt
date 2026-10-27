@@ -1,6 +1,6 @@
-# Edu-Kingdom and Baby-Kingdom forum feeds
+# Edu-Kingdom, Baby-Kingdom, and Flyert forum feeds
 
-One GitHub Actions job updates all nine forums every four hours. It starts RSSHub and FlareSolverr once, reuses a browser session, collects forums sequentially, and publishes validated XML through GitHub Pages. Your PC can be off.
+One GitHub Actions job updates all thirteen forums every four hours. It starts RSSHub and FlareSolverr once, reuses a browser session, collects forums sequentially, and publishes validated XML through GitHub Pages. Your PC can be off.
 
 | Site | Forum | Feed |
 | --- | --- | --- |
@@ -13,8 +13,12 @@ One GitHub Actions job updates all nine forums every four hours. It starts RSSHu
 | 親子王國 | 家庭理財 | [39](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/39.xml) |
 | 親子王國 | 自由報料 | [19](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/19.xml) |
 | 親子王國 | 齊齊著數 | [724](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/724.xml) |
+| 飞客 | 海外用卡 | [228](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/228.xml) |
+| 飞客 | IHG优悦会 | [23](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/23.xml) |
+| 飞客 | 万豪旅享家 | [63](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/63.xml) |
+| 飞客 | 用卡热点 | [59](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/59.xml) |
 
-Import [all nine subscriptions](https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml), [Baby-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/baby-kingdom.opml), or [Edu-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/edu-kingdom.opml).
+Import [all thirteen subscriptions](https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml), [Baby-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/baby-kingdom.opml), [Flyert only](https://abc004108.github.io/edu-kingdom-feed/flyert.opml), or [Edu-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/edu-kingdom.opml).
 
 The original [feed.xml](https://abc004108.github.io/edu-kingdom-feed/feed.xml) remains an alias for Edu-Kingdom 368 with the same item GUIDs. [Collection status](https://abc004108.github.io/edu-kingdom-feed/status.json) reports each forum separately.
 
@@ -26,7 +30,7 @@ Add an entry to `forums.json` and commit:
 {"site": "baby-kingdom", "id": 123, "name": "版塊名稱"}
 ```
 
-Supported sites are `edu-kingdom` (the default when omitted) and `baby-kingdom`. Edu-Kingdom publishes at `feeds/ID.xml`; Baby-Kingdom at `feeds/baby-kingdom/ID.xml`. Forum IDs are unique within each site. The shared Discuz parser and browser transport are in `routes/edu-kingdom/utils.ts`; the two namespaces supply the site and label. Configuration changes reuse the cached RSSHub image; route changes rebuild it. No workflow edits are needed to add forums on either site.
+Supported sites are `edu-kingdom` (the default when omitted) `baby-kingdom`, and `flyert`. Edu-Kingdom publishes at `feeds/ID.xml`; Baby-Kingdom at `feeds/baby-kingdom/ID.xml`; Flyert at `feeds/flyert/ID.xml`. Forum IDs are unique within each site. The shared Discuz parser and browser transport are in `routes/edu-kingdom/utils.ts`; the two namespaces supply the site and label. Configuration changes reuse the cached RSSHub image; route changes rebuild it. No workflow edits are needed to add forums on any supported site.
 
 ## Schedule and failure handling
 
@@ -39,3 +43,10 @@ Only the latest page is collected; more than a page of new topics between runs o
 ## Hosting
 
 This uses a public repository, standard GitHub-hosted Ubuntu runners, GitHub Pages, a cached RSSHub image, and a pinned FlareSolverr image. No paid host, proxy, or CAPTCHA service is configured. Browser sessions are temporary; no personal credentials are stored. Source security checks may change and future access is not guaranteed.
+
+
+## Flyert route
+
+The separate `routes/flyert/new-topics.ts` route uses the supplied `filter=lastpost&orderby=dateline` query. Topic creation order comes from `orderby=dateline`; item identity is the permanent thread URL. It reads only unpinned `normalthread` rows, uses original-author dates instead of latest-reply dates, and decodes the source's GBK encoding. It requests the public list directly, with the shared browser helper as a fallback. It does not fetch individual post bodies. The existing upstream Flyert routes are retained.
+
+For example, add `{"site": "flyert", "id": 228, "name": "海外用卡"}` to the forum configuration. The RSSHub path is `/flyert/new-topics/228`; the published file is `feeds/flyert/228.xml`. Import `flyert.opml` for the four Flyert subscriptions, or `subscriptions.opml` for all thirteen.

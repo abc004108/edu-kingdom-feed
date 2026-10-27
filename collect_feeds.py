@@ -48,8 +48,9 @@ def collect(forums, output, base_url, fetcher=fetch):
         fid, name, path = forum['id'], forum['name'], forum['path']
         site = forum['site']
         feed_url = f'{base_url}/{path}'
+        route = 'new-topics' if site == 'flyert' else 'forum'
         try:
-            raw = fetcher(f'http://127.0.0.1:1200/{site}/forum/{fid}')
+            raw = fetcher(f'http://127.0.0.1:1200/{site}/{route}/{fid}')
             data = render_feed(raw, fid, name, feed_url, site)
             state = 'updated'
             error = None
@@ -84,7 +85,7 @@ def collect(forums, output, base_url, fetcher=fetch):
     output.mkdir(parents=True, exist_ok=True)
     (output / '.nojekyll').touch()
     (output / 'status.json').write_text(json.dumps({'checked_at': datetime.now(timezone.utc).isoformat(), 'forums': results}, ensure_ascii=False, indent=2), encoding='utf-8')
-    write_opml(output / 'subscriptions.opml', forums, base_url, '王國論壇 · 新主題')
+    write_opml(output / 'subscriptions.opml', forums, base_url, '論壇訂閱 · 新主題')
     for site, (_, label) in SITES.items():
         selected = [forum for forum in forums if forum['site'] == site]
         if selected:

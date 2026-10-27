@@ -6,18 +6,34 @@ from urllib.error import URLError
 import xml.etree.ElementTree as ET
 
 from collect_feeds import collect, load_config
-from prepare_feed import render_feed
+from prepare_feed import render_feed, SITES
 
 
 def fixture(fid, tid=123, site='edu-kingdom'):
-    link = f'https://www.{site}.com/forum.php?mod=viewthread&amp;tid={tid}'
+    host = SITES[site][0]
+    link = f'https://{host}/forum.php?mod=viewthread&amp;tid={tid}'
     return f'''<rss version="2.0"><channel><title>Source</title>
-    <link>https://www.{site}.com/forum.php?mod=forumdisplay&amp;fid={fid}</link>
+    <link>https://{host}/forum.php?mod=forumdisplay&amp;fid={fid}</link>
     <item><title>中文 &amp; school</title><link>{link}</link><guid>{link}</guid>
     <pubDate>Mon, 26 Oct 2026 00:00:00 GMT</pubDate></item></channel></rss>'''.encode()
 
 
 class PublishingTests(unittest.TestCase):
+    def test_flyert_uses_own_route_and_import_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            forums = self.config(root, [{'site': 'flyert', 'id': 228, 'name': '海外用卡'}])
+            calls = []
+            def fetcher(url):
+                calls.append(url)
+                return fixture(228, site='flyert')
+            collect(forums, root / 'site', 'https://example.org', fetcher)
+            self.assertEqual(calls, ['http://127.0.0.1:1200/flyert/new-topics/228'])
+            self.assertTrue((root / 'site/feeds/flyert/228.xml').exists())
+            self.assertEqual(len(ET.parse(root / 'site/flyert.opml').findall('body/outline')), 1)
+            with self.assertRaises(ValueError):
+                render_feed(fixture(228), 228, 'Flyert', 'https://example.org/flyert.xml', 'flyert')
+
     def test_same_forum_id_on_two_sites_has_distinct_feeds(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

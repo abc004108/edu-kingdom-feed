@@ -8,7 +8,7 @@ import { getPlaywrightPage } from '@/utils/playwright';
 const topicSelector = 'tbody[id^="normalthread_"] a.xst';
 const allowedResourceTypes = new Set(['document', 'script', 'stylesheet', 'xhr', 'fetch']);
 
-function creationDate(raw: string): Date | undefined {
+export function creationDate(raw: string): Date | undefined {
     const match = raw.match(/^(\d{2}|\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
     if (!match) {
         return;
@@ -20,7 +20,7 @@ function creationDate(raw: string): Date | undefined {
     return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-async function forumHtml(link: string): Promise<string> {
+export async function forumHtml(link: string, selector = topicSelector): Promise<string> {
     const helper = process.env.EDU_KINGDOM_BROWSER_HELPER;
     if (helper) {
         const result = await ofetch<{ status: string; message?: string; solution?: { status: number; response: string } }>(helper, {
@@ -46,7 +46,7 @@ async function forumHtml(link: string): Promise<string> {
 
     try {
         try {
-            await page.waitForSelector(topicSelector, { state: 'attached', timeout: 20000 });
+            await page.waitForSelector(selector, { state: 'attached', timeout: 20000 });
         } catch {
             throw new Error('Forum topics did not load. The host may be blocked by security verification, or the forum markup may have changed. No feed was generated.');
         }

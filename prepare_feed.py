@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 SITES = {
     'edu-kingdom': ('www.edu-kingdom.com', '教育王國'),
     'baby-kingdom': ('www.baby-kingdom.com', '親子王國'),
+    'flyert': ('www.flyert.com.cn', '飞客'),
 }
 
 

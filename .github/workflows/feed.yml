@@ -1,4 +1,4 @@
-name: Update Kingdom forum feeds
+name: Update forum feeds
 
 on:
   workflow_dispatch:

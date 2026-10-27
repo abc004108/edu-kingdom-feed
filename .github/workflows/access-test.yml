@@ -1,0 +1,60 @@
+name: Test forum access with browser helper
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/access-test.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  access-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Start temporary browser helper
+        run: |
+          docker run --detach --name browser-helper --shm-size=1g \
+            --publish 127.0.0.1:8191:8191 \
+            --env LOG_LEVEL=warning --env CAPTCHA_SOLVER=none \
+            --env TZ=Asia/Hong_Kong \
+            ghcr.io/flaresolverr/flaresolverr:latest
+          ready=false
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --max-time 3 http://127.0.0.1:8191/ > /dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          [ "$ready" = true ]
+
+      - name: Test one public forum page
+        run: |
+          curl --fail --silent --show-error --max-time 100 \
+            --header 'Content-Type: application/json' \
+            --data '{"cmd":"request.get","url":"https://www.edu-kingdom.com/forum.php?mod=forumdisplay&fid=368&filter=author&orderby=dateline","maxTimeout":60000}' \
+            http://127.0.0.1:8191/v1 --output result.json
+          python3 - <<'PY'
+          import json, re, sys
+          from pathlib import Path
+          data = json.loads(Path('result.json').read_text())
+          solution = data.get('solution') or {}
+          html = solution.get('response') or ''
+          title = re.search(r'<title[^>]*>(.*?)</title>', html, re.I | re.S)
+          count = len(set(re.findall(r'normalthread_(\d+)', html)))
+          summary = {'helper_status': data.get('status'), 'message': data.get('message'), 'page_status': solution.get('status'), 'page_title': title.group(1) if title else None, 'topic_rows': count}
+          print(json.dumps(summary, ensure_ascii=True))
+          passed = data.get('status') == 'ok' and solution.get('status') == 200 and count > 0
+          sys.exit(0 if passed else 1)
+          PY
+
+      - name: Show helper diagnostics
+        if: failure()
+        run: docker logs --tail 25 browser-helper || true
+
+      - name: Remove temporary helper
+        if: always()
+        run: docker rm --force browser-helper || true

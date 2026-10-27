@@ -1,23 +1,41 @@
-# Edu-Kingdom 小一選校 — new topics
+# Edu-Kingdom forum feeds
 
-**Live feed:** https://abc004108.github.io/edu-kingdom-feed/feed.xml
+One GitHub Actions job updates all configured forums every four hours. It starts RSSHub and FlareSolverr once, creates one browser session, collects forums sequentially, and publishes the validated XML through GitHub Pages. Your PC can be off.
 
-Verified on 27 October 2026: the public URL returned HTTP 200 with 30 unique topics and intact Chinese text. The complete GitHub-hosted collection and publishing job passed.
+| Forum | ID | Feed |
+| --- | --- | --- |
+| 小一選校 | 368 | https://abc004108.github.io/edu-kingdom-feed/feeds/368.xml |
+| 小學雜談 | 7 | https://abc004108.github.io/edu-kingdom-feed/feeds/7.xml |
+| 二手市場 | 709 | https://abc004108.github.io/edu-kingdom-feed/feeds/709.xml |
+| 中學交流 | 715 | https://abc004108.github.io/edu-kingdom-feed/feeds/715.xml |
+| 幼校討論 | 6 | https://abc004108.github.io/edu-kingdom-feed/feeds/6.xml |
 
-GitHub Actions starts RSSHub and a temporary FlareSolverr browser helper. The helper retrieves the public forum page; RSSHub turns it into RSS, and GitHub Pages hosts the validated XML. Your computer does not need to remain on. The helper image is pinned to the digest used in the successful access test, and the RSSHub source revision is pinned as well.
+The original 小一選校 URL, https://abc004108.github.io/edu-kingdom-feed/feed.xml, stays available with the same item GUIDs. You do not need to change an existing subscription.
 
-The workflow is scheduled around minutes 17 and 47 of each hour. GitHub can delay or skip scheduled runs. Each topic has a stable thread URL as its GUID and uses its creation date; replies do not create separate feed items. The initial feed includes the latest existing topics.
+Import all subscriptions: https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml
 
-Earlier plain-browser cloud tests encountered security verification. The helper-based access test and full publishing run subsequently succeeded. This establishes current functionality, not a guarantee against future changes to the site's protection.
+Last collection status: https://abc004108.github.io/edu-kingdom-feed/status.json
 
-## Maintenance
+## Add a forum
 
-- If a fetch or validation fails, publication stops and the last successful feed stays available. Check the Actions tab if the feed becomes stale.
-- GitHub can disable scheduled workflows after 60 days without repository activity. Re-enable the workflow in Actions if this occurs.
-- Only the latest forum page is collected. Long interruptions or high posting volume can cause missed topics.
-- This setup uses a public repository, standard GitHub-hosted Ubuntu runners, and GitHub Pages. No paid host, paid proxy, or paid CAPTCHA service is configured.
-- The helper is reachable only within the temporary runner/container network. No browser session cookies or personal credentials are stored in this repository.
+Edit `forums.json` and add one entry to the `forums` array:
 
-Source: https://www.edu-kingdom.com/forum.php?mod=forumdisplay&fid=368
+```json
+{"id": 123, "name": "版塊名稱"}
+```
 
-Successful publishing run: https://github.com/abc004108/edu-kingdom-feed/actions/runs/40424686682
+Commit the change. The workflow collects it and publishes `feeds/123.xml`, and includes it in the OPML file. No route duplication or workflow editing is needed. Configuration changes reuse the cached RSSHub image; route changes rebuild it. Optional `aliases` are only needed when keeping an older feed URL, as for forum 368.
+
+## Schedule and failure handling
+
+Scheduled times in Hong Kong are approximately 00:17, 04:17, 08:17, 12:17, 16:17, and 20:17. GitHub may delay or skip a run. RSS feed TTL is 240 minutes.
+
+Each thread is one RSS item, using its stable thread URL as the GUID and its creation date. Replies do not create separate items. The first subscription includes existing recent topics.
+
+If one forum fails, the collector validates and preserves that forum's last published XML while updating the others. The status file reports `preserved`, and Actions shows a warning. If a new forum has never produced a valid feed, publication is stopped so the current site is not replaced by an incomplete set.
+
+The latest page of each forum is collected. Long interruptions or more than a page of new topics between runs can cause missed topics. GitHub may disable schedules after 60 days without repository activity; re-enable the workflow in Actions if needed.
+
+## Hosting
+
+Public repository, standard GitHub-hosted Ubuntu runners, GitHub Pages, a cached RSSHub image, and a pinned FlareSolverr image. No paid host, proxy, or CAPTCHA service is configured. Browser sessions are destroyed when the temporary containers stop, and no personal credentials are stored.

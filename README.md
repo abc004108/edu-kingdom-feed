@@ -36,6 +36,8 @@ Supported sites are `edu-kingdom` (the default when omitted) `baby-kingdom`, and
 
 Runs are scheduled approximately 00:17, 04:17, 08:17, 12:17, 16:17, and 20:17 Hong Kong time. GitHub may delay or skip runs. RSS TTL is 240 minutes. Each thread uses its permanent URL as GUID. Replies do not create separate items. Only topic titles, authors, creation dates where available, and links are collected.
 
+All RSS `lastBuildDate` and `pubDate` timestamps use Hong Kong time with the standard numeric offset `+0800`. The conversion preserves the original instant, including when a saved feed is reused. `status.json` uses ISO timestamps with `+08:00` and identifies the timezone as `Asia/Hong_Kong`.
+
 If a forum fails, its last validated published feed is preserved while other forums update. Validation checks both site and forum ID. If a newly added forum has never produced a valid feed, publication stops and keeps the existing site intact.
 
 Only the latest page is collected; more than a page of new topics between runs or long interruptions can cause missed topics. The first subscription includes the current recent topics. GitHub may disable schedules after 60 days without repository activity; re-enable the workflow in Actions if needed.

@@ -1,4 +1,6 @@
 import json
+from datetime import datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,6 +21,39 @@ def fixture(fid, tid=123, site='edu-kingdom'):
 
 
 class PublishingTests(unittest.TestCase):
+    def test_all_sites_convert_feed_and_item_dates_to_hkt_without_changing_instants(self):
+        for site in SITES:
+            with self.subTest(site=site):
+                source = ET.fromstring(fixture(27, site=site))
+                channel = source.find('channel')
+                ET.SubElement(channel, 'lastBuildDate').text = 'Tue, 27 Oct 2026 20:51:15 GMT'
+                ET.SubElement(channel, 'pubDate').text = 'Tue, 27 Oct 2026 12:51:15 -0800'
+                url = 'https://example.org/feed.xml'
+                result = render_feed(ET.tostring(source), 27, 'Forum', url, site)
+                output = ET.fromstring(result)
+                self.assertEqual(output.findtext('channel/lastBuildDate'), 'Wed, 28 Oct 2026 04:51:15 +0800')
+                self.assertEqual(output.findtext('channel/pubDate'), 'Wed, 28 Oct 2026 04:51:15 +0800')
+                self.assertEqual(output.findtext('channel/item/pubDate'), 'Mon, 26 Oct 2026 08:00:00 +0800')
+                self.assertEqual(parsedate_to_datetime(output.findtext('channel/lastBuildDate')), parsedate_to_datetime(channel.findtext('lastBuildDate')))
+                self.assertEqual(output.findtext('channel/item/guid'), source.findtext('channel/item/guid'))
+                self.assertEqual(render_feed(result, 27, 'Forum', url, site), result)
+
+    def test_preserved_feeds_and_status_use_hkt(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            forums = self.config(root, [{'id': 7, 'name': 'Forum', 'aliases': ['legacy.xml']}])
+            def fetcher(url):
+                if '/forum/' in url:
+                    raise URLError('temporary source failure')
+                return fixture(7)
+            results = collect(forums, root / 'site', 'https://example.org', fetcher)
+            self.assertEqual(results[0]['state'], 'preserved')
+            for path in ['feeds/7.xml', 'legacy.xml']:
+                self.assertTrue(ET.parse(root / 'site' / path).findtext('channel/item/pubDate').endswith('+0800'))
+            status = json.loads((root / 'site/status.json').read_text(encoding='utf-8'))
+            self.assertEqual(datetime.fromisoformat(status['checked_at']).utcoffset(), timedelta(hours=8))
+            self.assertEqual(status['timezone'], 'Asia/Hong_Kong')
+
     def test_flyert_uses_own_route_and_import_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

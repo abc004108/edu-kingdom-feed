@@ -1,5 +1,5 @@
 """Collect configured forums sequentially through one running RSSHub instance."""
-from datetime import datetime, timezone
+from datetime import datetime
 import json
 from pathlib import Path, PurePosixPath
 import sys
@@ -7,7 +7,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
-from prepare_feed import render_feed, SITES
+from prepare_feed import render_feed, SITES, HKT
 
 
 def fetch(url):
@@ -84,7 +84,7 @@ def collect(forums, output, base_url, fetcher=fetch):
             target.write_bytes(payload)
     output.mkdir(parents=True, exist_ok=True)
     (output / '.nojekyll').touch()
-    (output / 'status.json').write_text(json.dumps({'checked_at': datetime.now(timezone.utc).isoformat(), 'forums': results}, ensure_ascii=False, indent=2), encoding='utf-8')
+    (output / 'status.json').write_text(json.dumps({'checked_at': datetime.now(HKT).isoformat(), 'timezone': 'Asia/Hong_Kong', 'forums': results}, ensure_ascii=False, indent=2), encoding='utf-8')
     write_opml(output / 'subscriptions.opml', forums, base_url, '論壇訂閱 · 新主題')
     for site, (_, label) in SITES.items():
         selected = [forum for forum in forums if forum['site'] == site]

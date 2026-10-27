@@ -1,10 +1,13 @@
 """Validate RSSHub output before replacing the public feed."""
-from email.utils import parsedate_to_datetime
+from datetime import timedelta, timezone
+from email.utils import format_datetime, parsedate_to_datetime
 from pathlib import Path
 import sys
 from urllib.parse import parse_qs, urlparse
 import xml.etree.ElementTree as ET
 
+
+HKT = timezone(timedelta(hours=8), 'HKT')
 
 SITES = {
     'edu-kingdom': ('www.edu-kingdom.com', '教育王國'),
@@ -39,8 +42,15 @@ def render_feed(content, fid, name, feed_url, site='edu-kingdom'):
         if link in seen or item.findtext('guid') != link or not item.findtext('title'):
             raise ValueError('Invalid or duplicate topic identity')
         seen.add(link)
-        if item.findtext('pubDate'):
-            parsedate_to_datetime(item.findtext('pubDate'))
+    # RSS dates use a numeric offset for reader compatibility. Convert the
+    # instant, including saved feeds, rather than merely changing its label.
+    dates = [*channel.findall('lastBuildDate'), *channel.findall('pubDate'), *channel.findall('item/pubDate')]
+    for element in dates:
+        if element.text:
+            date = parsedate_to_datetime(element.text)
+            if date.tzinfo is None or date.utcoffset() is None:
+                raise ValueError('RSS timestamps must include a timezone')
+            element.text = format_datetime(date.astimezone(HKT))
     channel.find('title').text = f'{label} · {name} · 新主題'
     ttl = channel.find('ttl')
     if ttl is None:

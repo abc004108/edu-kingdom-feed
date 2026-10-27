@@ -9,15 +9,32 @@ from collect_feeds import collect, load_config
 from prepare_feed import render_feed
 
 
-def fixture(fid, tid=123):
-    link = f'https://www.edu-kingdom.com/forum.php?mod=viewthread&amp;tid={tid}'
+def fixture(fid, tid=123, site='edu-kingdom'):
+    link = f'https://www.{site}.com/forum.php?mod=viewthread&amp;tid={tid}'
     return f'''<rss version="2.0"><channel><title>Source</title>
-    <link>https://www.edu-kingdom.com/forum.php?mod=forumdisplay&amp;fid={fid}</link>
+    <link>https://www.{site}.com/forum.php?mod=forumdisplay&amp;fid={fid}</link>
     <item><title>中文 &amp; school</title><link>{link}</link><guid>{link}</guid>
     <pubDate>Mon, 26 Oct 2026 00:00:00 GMT</pubDate></item></channel></rss>'''.encode()
 
 
 class PublishingTests(unittest.TestCase):
+    def test_same_forum_id_on_two_sites_has_distinct_feeds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            forums = self.config(root, [{'id': 27, 'name': 'Edu'}, {'site': 'baby-kingdom', 'id': 27, 'name': '二手市場'}])
+            def fetcher(url):
+                return fixture(27, site='baby-kingdom' if '/baby-kingdom/' in url else 'edu-kingdom')
+            results = collect(forums, root / 'site', 'https://example.org', fetcher)
+            self.assertTrue(all(r['state'] == 'updated' for r in results))
+            self.assertTrue((root / 'site/feeds/27.xml').exists())
+            baby = ET.parse(root / 'site/feeds/baby-kingdom/27.xml')
+            self.assertIn('www.baby-kingdom.com', baby.findtext('channel/item/guid'))
+            self.assertEqual(len(ET.parse(root / 'site/baby-kingdom.opml').findall('body/outline')), 1)
+
+    def test_other_site_feed_is_rejected_even_when_forum_id_matches(self):
+        with self.assertRaises(ValueError):
+            render_feed(fixture(27), 27, 'Baby', 'https://example.org/baby.xml', 'baby-kingdom')
+
     def config(self, root, forums):
         path = root / 'forums.json'
         path.write_text(json.dumps({'forums': forums}), encoding='utf-8')

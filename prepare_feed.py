@@ -6,7 +6,14 @@ from urllib.parse import parse_qs, urlparse
 import xml.etree.ElementTree as ET
 
 
-def render_feed(content, fid, name, feed_url):
+SITES = {
+    'edu-kingdom': ('www.edu-kingdom.com', '教育王國'),
+    'baby-kingdom': ('www.baby-kingdom.com', '親子王國'),
+}
+
+
+def render_feed(content, fid, name, feed_url, site='edu-kingdom'):
+    host, label = SITES[site]
     if isinstance(content, bytes):
         content = content.decode('utf-8-sig')
     if '\ufffd' in content:
@@ -16,7 +23,7 @@ def render_feed(content, fid, name, feed_url):
     if root.tag != 'rss' or channel is None or channel.find('title') is None:
         raise ValueError('Expected an RSS channel, possibly received a block page')
     source_link = urlparse(channel.findtext('link') or '')
-    if source_link.hostname != 'www.edu-kingdom.com' or parse_qs(source_link.query).get('fid') != [str(fid)]:
+    if source_link.hostname != host or parse_qs(source_link.query).get('fid') != [str(fid)]:
         raise ValueError(f'Unexpected source forum; expected {fid}')
     items = channel.findall('item')
     if not items:
@@ -26,14 +33,14 @@ def render_feed(content, fid, name, feed_url):
         link = item.findtext('link') or ''
         parsed = urlparse(link)
         tid = parse_qs(parsed.query).get('tid', [''])[0]
-        if parsed.hostname != 'www.edu-kingdom.com' or not tid.isdigit():
+        if parsed.hostname != host or not tid.isdigit():
             raise ValueError('Invalid thread link')
         if link in seen or item.findtext('guid') != link or not item.findtext('title'):
             raise ValueError('Invalid or duplicate topic identity')
         seen.add(link)
         if item.findtext('pubDate'):
             parsedate_to_datetime(item.findtext('pubDate'))
-    channel.find('title').text = f'教育王國 · {name} · 新主題'
+    channel.find('title').text = f'{label} · {name} · 新主題'
     ttl = channel.find('ttl')
     if ttl is None:
         ttl = ET.SubElement(channel, 'ttl')

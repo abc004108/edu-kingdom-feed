@@ -7,7 +7,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
-from prepare_feed import render_feed
+from prepare_feed import render_feed, SITES
 
 
 def fetch(url):
@@ -22,11 +22,16 @@ def load_config(path):
         raise ValueError('Configure at least one forum')
     for forum in forums:
         fid = str(forum['id'])
-        if not fid.isdigit() or fid in seen_ids or not forum.get('name', '').strip():
+        site = forum.get('site', 'edu-kingdom')
+        if site not in SITES:
+            raise ValueError(f'Unsupported site: {site}')
+        identity = (site, fid)
+        if not fid.isdigit() or identity in seen_ids or not forum.get('name', '').strip():
             raise ValueError('Forum IDs must be unique numeric values with a name')
-        seen_ids.add(fid)
+        seen_ids.add(identity)
         forum['id'] = fid
-        forum['path'] = f'feeds/{fid}.xml'
+        forum['site'] = site
+        forum['path'] = f'feeds/{fid}.xml' if site == 'edu-kingdom' else f'feeds/{site}/{fid}.xml'
         for path in [forum['path'], *forum.get('aliases', [])]:
             parts = PurePosixPath(path)
             if parts.is_absolute() or '..' in parts.parts or '\\' in path or not path.endswith('.xml') or path in seen_paths:
@@ -41,10 +46,11 @@ def collect(forums, output, base_url, fetcher=fetch):
     results, prepared, missing = [], [], []
     for forum in forums:
         fid, name, path = forum['id'], forum['name'], forum['path']
+        site = forum['site']
         feed_url = f'{base_url}/{path}'
         try:
-            raw = fetcher(f'http://127.0.0.1:1200/edu-kingdom/forum/{fid}')
-            data = render_feed(raw, fid, name, feed_url)
+            raw = fetcher(f'http://127.0.0.1:1200/{site}/forum/{fid}')
+            data = render_feed(raw, fid, name, feed_url, site)
             state = 'updated'
             error = None
         except (URLError, OSError, ValueError, ET.ParseError) as exc:
@@ -54,14 +60,14 @@ def collect(forums, output, base_url, fetcher=fetch):
             for previous_path in [path, *forum.get('aliases', [])]:
                 try:
                     raw = fetcher(f'{base_url}/{previous_path}')
-                    data = render_feed(raw, fid, name, feed_url)
+                    data = render_feed(raw, fid, name, feed_url, site)
                     break
                 except (URLError, OSError, ValueError, ET.ParseError):
                     pass
             state = 'preserved' if data is not None else 'missing'
             if data is None:
-                missing.append(fid)
-        results.append({'id': fid, 'name': name, 'path': path, 'state': state, 'error': error})
+                missing.append(f'{site}/{fid}')
+        results.append({'site': site, 'id': fid, 'name': name, 'path': path, 'state': state, 'error': error})
         if data is not None:
             prepared.append((forum, data))
         print(json.dumps(results[-1], ensure_ascii=True), flush=True)
@@ -73,19 +79,29 @@ def collect(forums, output, base_url, fetcher=fetch):
         for path in [forum['path'], *forum.get('aliases', [])]:
             target = output / path
             target.parent.mkdir(parents=True, exist_ok=True)
-            payload = render_feed(data, forum['id'], forum['name'], f'{base_url}/{path}') if path != forum['path'] else data
+            payload = render_feed(data, forum['id'], forum['name'], f'{base_url}/{path}', forum['site']) if path != forum['path'] else data
             target.write_bytes(payload)
     output.mkdir(parents=True, exist_ok=True)
     (output / '.nojekyll').touch()
     (output / 'status.json').write_text(json.dumps({'checked_at': datetime.now(timezone.utc).isoformat(), 'forums': results}, ensure_ascii=False, indent=2), encoding='utf-8')
+    write_opml(output / 'subscriptions.opml', forums, base_url, '王國論壇 · 新主題')
+    for site, (_, label) in SITES.items():
+        selected = [forum for forum in forums if forum['site'] == site]
+        if selected:
+            write_opml(output / f'{site}.opml', selected, base_url, f'{label} · 新主題')
+    return results
+
+
+def write_opml(path, forums, base_url, title):
     opml = ET.Element('opml', version='2.0')
-    ET.SubElement(ET.SubElement(opml, 'head'), 'title').text = '教育王國 · 新主題'
+    ET.SubElement(ET.SubElement(opml, 'head'), 'title').text = title
     body = ET.SubElement(opml, 'body')
     for forum in forums:
-        ET.SubElement(body, 'outline', text=forum['name'], title=forum['name'], type='rss', xmlUrl=f"{base_url}/{forum['path']}", htmlUrl=f"https://www.edu-kingdom.com/forum.php?mod=forumdisplay&fid={forum['id']}")
+        host, label = SITES[forum['site']]
+        name = f"{label} · {forum['name']}"
+        ET.SubElement(body, 'outline', text=name, title=name, type='rss', xmlUrl=f"{base_url}/{forum['path']}", htmlUrl=f"https://{host}/forum.php?mod=forumdisplay&fid={forum['id']}")
     ET.indent(opml)
-    ET.ElementTree(opml).write(output / 'subscriptions.opml', encoding='utf-8', xml_declaration=True)
-    return results
+    ET.ElementTree(opml).write(path, encoding='utf-8', xml_declaration=True)
 
 
 if __name__ == '__main__':

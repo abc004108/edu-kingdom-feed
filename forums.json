@@ -1,9 +1,47 @@
 {
   "forums": [
-    {"id": 368, "name": "小一選校", "aliases": ["feed.xml"]},
-    {"id": 7, "name": "小學雜談"},
-    {"id": 709, "name": "二手市場"},
-    {"id": 715, "name": "中學交流"},
-    {"id": 6, "name": "幼校討論"}
+    {
+      "id": 368,
+      "name": "小一選校",
+      "aliases": [
+        "feed.xml"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "小學雜談"
+    },
+    {
+      "id": 709,
+      "name": "二手市場"
+    },
+    {
+      "id": 715,
+      "name": "中學交流"
+    },
+    {
+      "id": 6,
+      "name": "幼校討論"
+    },
+    {
+      "site": "baby-kingdom",
+      "id": 27,
+      "name": "二手市場"
+    },
+    {
+      "site": "baby-kingdom",
+      "id": 39,
+      "name": "家庭理財"
+    },
+    {
+      "site": "baby-kingdom",
+      "id": 19,
+      "name": "自由報料"
+    },
+    {
+      "site": "baby-kingdom",
+      "id": 724,
+      "name": "齊齊著數"
+    }
   ]
 }

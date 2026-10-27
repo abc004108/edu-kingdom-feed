@@ -1,4 +1,4 @@
-name: Update Edu-Kingdom feed
+name: Update Kingdom forum feeds
 
 on:
   workflow_dispatch:
@@ -58,7 +58,7 @@ jobs:
           if [ "$CACHE_HIT" = 'true' ]; then
             docker load --input .image-cache/rsshub.tar
           else
-            cp -R routes/edu-kingdom vendor/rsshub/lib/routes/edu-kingdom
+            cp -R routes/. vendor/rsshub/lib/routes/
             docker build --build-arg PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 --tag edu-kingdom-rsshub:feed vendor/rsshub
             mkdir -p .image-cache
             docker save --output .image-cache/rsshub.tar edu-kingdom-rsshub:feed

@@ -3,10 +3,10 @@ name: Update Edu-Kingdom feed
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17,47 * * * *'
+    - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'forums.json', 'tests/**']
 
 permissions:
   contents: read
@@ -26,6 +26,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check multi-forum publishing behavior
+        run: python3 -m unittest discover -s tests -v
 
       - name: Configure Pages
         id: pages
@@ -86,13 +89,22 @@ jobs:
           done
           [ "$ready" = true ]
 
+      - name: Create one shared browser session for this run
+        run: |
+          curl --fail --silent --show-error --max-time 60 \
+            --header 'Content-Type: application/json' \
+            --data '{"cmd":"sessions.create","session":"edu-kingdom-feed"}' \
+            http://127.0.0.1:8191/v1 --output session.json
+          python3 -c "import json; d=json.load(open('session.json')); assert d.get('status')=='ok', d.get('message'); print('Shared browser session created')"
+
       - name: Start RSSHub temporarily
         run: |
           docker run --detach --name rsshub --network forum-feed --shm-size=1g \
             --publish 127.0.0.1:1200:1200 \
-            --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=1800 \
+            --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=14400 \
             --env CACHE_TYPE=memory --env NODE_ENV=production \
             --env EDU_KINGDOM_BROWSER_HELPER=http://browser-helper:8191/v1 \
+            --env EDU_KINGDOM_BROWSER_SESSION=edu-kingdom-feed \
             edu-kingdom-rsshub:feed
           ready=false
           for attempt in $(seq 1 60); do
@@ -104,13 +116,11 @@ jobs:
           done
           [ "$ready" = true ]
 
-      - name: Fetch and validate new-topic feed
+      - name: Collect and validate all configured forum feeds
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
         run: |
-          curl --fail --show-error --silent --max-time 110 \
-            http://127.0.0.1:1200/edu-kingdom/forum/368 --output raw-feed.xml
-          python3 prepare_feed.py raw-feed.xml public "$PAGES_BASE_URL"
+          python3 collect_feeds.py forums.json public "$PAGES_BASE_URL"
 
       - name: Upload the validated feed
         uses: actions/upload-pages-artifact@v3

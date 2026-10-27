@@ -26,7 +26,7 @@ async function forumHtml(link: string): Promise<string> {
     if (helper) {
         const result = await ofetch<{ status: string; message?: string; solution?: { status: number; response: string } }>(helper, {
             method: 'POST',
-            body: { cmd: 'request.get', url: link, maxTimeout: 60000 },
+            body: { cmd: 'request.get', url: link, maxTimeout: 60000, ...(process.env.EDU_KINGDOM_BROWSER_SESSION ? { session: process.env.EDU_KINGDOM_BROWSER_SESSION } : {}) },
             timeout: 80000,
             retry: 0,
         });

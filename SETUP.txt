@@ -1,75 +1,41 @@
-FREE ONLINE FEED USING RSSHUB, GITHUB ACTIONS, AND GITHUB PAGES
+# Edu-Kingdom and Baby-Kingdom forum feeds
 
-Status: LIVE AND VERIFIED on 27 October 2026.
-Subscribe: https://abc004108.github.io/edu-kingdom-feed/feed.xml
-All five public forum feeds returned HTTP 200 with correct titles, unique thread
-GUIDs, intact Chinese text, and TTL 240 minutes. Counts were 30, 30, 27, 29, 29
-for forums 368, 7, 709, 715, and 6 respectively. All five were freshly updated.
-Repository: https://github.com/abc004108/edu-kingdom-feed
-The complete cloud publishing run succeeded:
-https://github.com/abc004108/edu-kingdom-feed/actions/runs/40426183193
+One GitHub Actions job updates all nine forums every four hours. It starts RSSHub and FlareSolverr once, reuses a browser session, collects forums sequentially, and publishes validated XML through GitHub Pages. Your PC can be off.
 
-Earlier ordinary-browser tests encountered HTTP 403 security verification.
-A temporary FlareSolverr helper successfully retrieved the real forum, and the
-route now uses that helper in GitHub Actions. Its Docker image is pinned to
-the digest tested successfully. No paid proxy or CAPTCHA service is used.
-The helper is accessible only within the runner and private container network.
+| Site | Forum | Feed |
+| --- | --- | --- |
+| 教育王國 | 小一選校 | [368](https://abc004108.github.io/edu-kingdom-feed/feeds/368.xml) |
+| 教育王國 | 小學雜談 | [7](https://abc004108.github.io/edu-kingdom-feed/feeds/7.xml) |
+| 教育王國 | 二手市場 | [709](https://abc004108.github.io/edu-kingdom-feed/feeds/709.xml) |
+| 教育王國 | 中學交流 | [715](https://abc004108.github.io/edu-kingdom-feed/feeds/715.xml) |
+| 教育王國 | 幼校討論 | [6](https://abc004108.github.io/edu-kingdom-feed/feeds/6.xml) |
+| 親子王國 | 二手市場 | [27](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/27.xml) |
+| 親子王國 | 家庭理財 | [39](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/39.xml) |
+| 親子王國 | 自由報料 | [19](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/19.xml) |
+| 親子王國 | 齊齊著數 | [724](https://abc004108.github.io/edu-kingdom-feed/feeds/baby-kingdom/724.xml) |
 
-How it works
-The enabled schedule runs once every FOUR HOURS, around 00:17, 04:17, 08:17,
-12:17, 16:17, and 20:17 Hong Kong time. One RSSHub container and browser helper
-are started per run, and one browser session is reused across all forums.
-It publishes one validated RSS file per forum through GitHub Pages.
-Your PC can be off. This hosts a periodically updated feed, not a continuously
-running public RSSHub API. Only the public feed and code are uploaded.
-No personal credentials, copied forum cookies, or private computer files are
-required. Temporary helper/browser sessions are destroyed after each run.
+Import [all nine subscriptions](https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml), [Baby-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/baby-kingdom.opml), or [Edu-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/edu-kingdom.opml).
 
-Free requirements
-Use a PUBLIC repository on GitHub Free and standard ubuntu-latest runners.
-GitHub documents free standard runner usage for public repositories and free
-Pages hosting for public repositories. This workflow uses a cached image,
-short-lived small Pages artifacts, no paid runner, and no paid host or registry.
-Repository and feed will be public. GitHub's plan limits and policies apply.
+The original [feed.xml](https://abc004108.github.io/edu-kingdom-feed/feed.xml) remains an alias for Edu-Kingdom 368 with the same item GUIDs. [Collection status](https://abc004108.github.io/edu-kingdom-feed/status.json) reports each forum separately.
 
-Deployment
-1. Create a public GitHub repository named edu-kingdom-feed with main as its
-   default branch. Upload this folder's CONTENTS, including .github, to its root.
-   Do not upload this chat's other files, the installer, or Docker logs.
-2. In repository Settings > Pages, select GitHub Actions as the build source.
-3. In Actions, run "Update Edu-Kingdom feed" manually to test it.
-4. Check the job's success and published feed before subscribing.
-   Your feed URL will follow this pattern:
-   https://YOUR_GITHUB_USERNAME.github.io/edu-kingdom-feed/feed.xml
-   This is a template, not an existing deployed URL.
+## Add a forum
 
-Operation
-The first job builds RSSHub plus Chromium and caches the image. Later runs
-restore that image, start a temporary container, fetch the forum, and stop it.
-A build may take 15 minutes or more. Source is pinned to the locally tested
-RSSHub revision. Updating that revision requires changing both the ref and
-cache key in the workflow and checking compatibility with the route.
-If a forum fetch fails, its last validated published feed is kept while other
-forums update. status.json records which feeds were updated or preserved.
-If a newly added forum has never had a valid feed, the existing site is kept
-until all configured forums have a valid fresh or saved feed.
+Add an entry to `forums.json` and commit:
 
-Add or remove subscriptions by editing forums.json. Each entry needs an id and
-name. The current IDs are 368, 7, 709, 715, and 6. Each publishes at feeds/ID.xml.
-The original feed.xml remains an alias for 368, preserving existing subscriptions
-and item GUIDs. Import subscriptions.opml to subscribe to all configured forums.
-Configuration changes do not rebuild the cached RSSHub image.
+```json
+{"site": "baby-kingdom", "id": 123, "name": "版塊名稱"}
+```
 
-Limits
-The forum's security checks may change. Current GitHub-hosted collection has
-passed; future successful access is not guaranteed.
-Schedules can be delayed or dropped. Public-repository schedules are disabled
-after 60 days without repository activity and may require re-enabling.
-Only the latest page of topics is fetched; long outages may miss topics.
-The first successful run publishes the existing latest batch as well.
-Use a reader that deduplicates stable GUIDs and mark that initial batch read.
+Supported sites are `edu-kingdom` (the default when omitted) and `baby-kingdom`. Edu-Kingdom publishes at `feeds/ID.xml`; Baby-Kingdom at `feeds/baby-kingdom/ID.xml`. Forum IDs are unique within each site. The shared Discuz parser and browser transport are in `routes/edu-kingdom/utils.ts`; the two namespaces supply the site and label. Configuration changes reuse the cached RSSHub image; route changes rebuild it. No workflow edits are needed to add forums on either site.
 
-Official references
-https://docs.github.com/en/billing/concepts/product-billing/github-actions
-https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
-https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
+## Schedule and failure handling
+
+Runs are scheduled approximately 00:17, 04:17, 08:17, 12:17, 16:17, and 20:17 Hong Kong time. GitHub may delay or skip runs. RSS TTL is 240 minutes. Each thread uses its permanent URL as GUID. Replies do not create separate items. Only topic titles, authors, creation dates where available, and links are collected.
+
+If a forum fails, its last validated published feed is preserved while other forums update. Validation checks both site and forum ID. If a newly added forum has never produced a valid feed, publication stops and keeps the existing site intact.
+
+Only the latest page is collected; more than a page of new topics between runs or long interruptions can cause missed topics. The first subscription includes the current recent topics. GitHub may disable schedules after 60 days without repository activity; re-enable the workflow in Actions if needed.
+
+## Hosting
+
+This uses a public repository, standard GitHub-hosted Ubuntu runners, GitHub Pages, a cached RSSHub image, and a pinned FlareSolverr image. No paid host, proxy, or CAPTCHA service is configured. Browser sessions are temporary; no personal credentials are stored. Source security checks may change and future access is not guaranteed.

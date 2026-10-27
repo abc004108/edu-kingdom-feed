@@ -11,6 +11,20 @@ from test_publishing import fixture
 
 
 class OriginalTimeTests(unittest.TestCase):
+    def test_repeated_host_failure_stops_requests_but_keeps_cached_times(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+            def fetcher(link):
+                calls.append(link)
+                return '<html>temporarily unavailable</html>'
+            resolver = TopicTimes(Path(tmp, 'times.json'), fetcher)
+            for tid in range(5):
+                resolver.enrich(fixture(27, tid=tid, site='baby-kingdom'))
+            self.assertEqual(len(calls), 3)
+            link = 'https://www.baby-kingdom.com/forum.php?mod=viewthread&tid=6'
+            resolver.values[link] = '2026-10-27T18:19:00+08:00'
+            self.assertEqual(resolver.resolve(link).hour, 18)
+
     def test_flyert_direct_gbk_html_avoids_browser(self):
         with tempfile.TemporaryDirectory() as tmp:
             response = MagicMock()

@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: edu-kingdom-feed
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   publish:

@@ -80,6 +80,7 @@ class TopicTimes:
         self.fetch_html = fetch_html or self.browser_html
         self.attempts = 0
         self.failures = []
+        self.host_failures = {}
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,8 +90,8 @@ class TopicTimes:
     def browser_html(link):
         helper = os.environ.get('FORUM_BROWSER_HELPER', 'http://127.0.0.1:8191/v1')
         session = os.environ.get('FORUM_BROWSER_SESSION', 'edu-kingdom-feed')
-        body = json.dumps({'cmd':'request.get', 'url':link+'&page=1&ordertype=1', 'session':session, 'maxTimeout':30000}).encode()
-        with urlopen(Request(helper, data=body, headers={'Content-Type':'application/json'}), timeout=40) as response:
+        body = json.dumps({'cmd':'request.get', 'url':link+'&page=1&ordertype=1', 'session':session, 'maxTimeout':15000}).encode()
+        with urlopen(Request(helper, data=body, headers={'Content-Type':'application/json'}), timeout=20) as response:
             result = json.load(response)
         solution = result.get('solution', {})
         if result.get('status') != 'ok' or solution.get('status') != 200:
@@ -103,6 +104,8 @@ class TopicTimes:
             raise ValueError('Unexpected topic URL')
         if link in self.values:
             return datetime.fromisoformat(self.values[link]).astimezone(HKT)
+        if self.host_failures.get(parsed.hostname, 0) >= 3:
+            raise ValueError('Timestamp requests paused for this host after three consecutive failures; retry next run')
         self.attempts += 1
         date = None
         # Flyert's public HTML is GBK. Read it directly before using the browser,
@@ -110,16 +113,17 @@ class TopicTimes:
         if parsed.hostname == 'www.flyert.com.cn':
             try:
                 request = Request(link+'&page=1&ordertype=1', headers={'User-Agent':'Mozilla/5.0 (compatible; ForumFeedCollector/1.0)'})
-                with urlopen(request, timeout=20) as response:
+                with urlopen(request, timeout=8) as response:
                     charset = response.headers.get_content_charset() or 'gbk'
                     html = response.read().decode(charset)
                 date = original_time(html)
-                time.sleep(0.5)
+                time.sleep(1.5)
             except (OSError, ValueError, TimeoutError):
                 pass
         if date is None:
             date = original_time(self.fetch_html(link))
         self.values[link] = date.isoformat()
+        self.host_failures[parsed.hostname] = 0
         self.save()
         return date
 
@@ -137,6 +141,8 @@ class TopicTimes:
                 resolved += 1
             except (OSError, ValueError, TimeoutError) as exc:
                 self.failures.append({'link':link, 'error':str(exc)})
+                host = urlparse(link).hostname
+                self.host_failures[host] = self.host_failures.get(host, 0) + 1
             if self.attempts % 10 == 0 and self.attempts:
                 print(f'Original timestamps: {len(self.values)} cached; {len(self.failures)} unavailable', flush=True)
         return ET.tostring(root, encoding='utf-8', xml_declaration=True), resolved

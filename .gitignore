@@ -1,5 +1,6 @@
 .image-cache/
 .topic-cache/
+.hket-cache/
 vendor/
 public/
 raw-feed.xml

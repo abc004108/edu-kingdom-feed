@@ -1,0 +1,41 @@
+name: Inspect HKET consent and Begin
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/hket_probe.mjs', '.github/workflows/hket-probe.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore the tested RSSHub Chromium image
+        uses: actions/cache/restore@v4
+        with:
+          path: .image-cache/rsshub.tar
+          key: rsshub-chromium-linux-amd64-242fe1b091bb412d23596d605f4434e684da99fd-${{ hashFiles('routes/**/*.ts') }}
+          fail-on-cache-miss: true
+      - name: Inspect the verification button once
+        run: |
+          docker load --input .image-cache/rsshub.tar
+          Xvfb :99 -screen 0 1365x900x24 -nolisten tcp > /tmp/hket-xvfb.log 2>&1 &
+          mkdir -p hket-probe
+          docker run --detach --name hket-probe --shm-size=1g \
+            --volume /tmp/.X11-unix:/tmp/.X11-unix:ro --env DISPLAY=:99 \
+            --env TZ=Asia/Hong_Kong --entrypoint sleep edu-kingdom-rsshub:feed infinity
+          docker cp scripts/hket_probe.mjs hket-probe:/app/hket_probe.mjs
+          docker exec hket-probe node /app/hket_probe.mjs
+          docker cp hket-probe:/tmp/hket-probe/. hket-probe/
+      - name: Save screenshots and verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hket-verification-inspection
+          path: hket-probe/
+          retention-days: 3
+      - name: Stop the diagnostic browser
+        if: always()
+        run: docker rm --force hket-probe || true

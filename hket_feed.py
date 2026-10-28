@@ -10,6 +10,7 @@ import sys
 import time
 from urllib.parse import urlparse, quote
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import xml.etree.ElementTree as ET
 
 from prepare_feed import HKT
@@ -100,10 +101,22 @@ def parse_article(html, link):
 
 
 def browser_html(url):
-    body = json.dumps({'cmd': 'request.get', 'url': url, 'session': 'edu-kingdom-feed', 'maxTimeout': 15000}).encode()
+    # Try the public HTTP page first; browser rendering is only needed on blocked responses.
+    try:
+        with urlopen(Request(url, headers={'User-Agent': 'Mozilla/5.0'}), timeout=15) as response:
+            html = response.read().decode('utf-8')
+        page = Page(html)
+        if page.links or page.scripts:
+            return html
+    except (OSError, ValueError):
+        pass
+    body = json.dumps({'cmd': 'request.get', 'url': url, 'session': 'edu-kingdom-feed', 'maxTimeout': 60000}).encode()
     request = Request('http://127.0.0.1:8191/v1', data=body, headers={'Content-Type': 'application/json'})
-    with urlopen(request, timeout=22) as response:
-        result = json.load(response)
+    try:
+        with urlopen(request, timeout=70) as response:
+            result = json.load(response)
+    except HTTPError as exc:
+        raise ValueError(f'HKET browser helper: {exc.read().decode("utf-8", errors="replace")[:600]}') from exc
     solution = result.get('solution', {})
     if result.get('status') != 'ok' or solution.get('status') != 200:
         raise ValueError(f"HKET browser request failed: {solution.get('status')} {result.get('message', '')}")

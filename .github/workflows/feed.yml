@@ -6,7 +6,7 @@ on:
     - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'topic_times.py', 'hket_feed.py', 'forums.json', 'tests/**']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'topic_times.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
 
 permissions:
   contents: read
@@ -99,8 +99,10 @@ jobs:
 
       - name: Start RSSHub temporarily
         run: |
+          Xvfb :99 -screen 0 1365x900x24 -nolisten tcp > /tmp/hket-xvfb.log 2>&1 &
           docker run --detach --name rsshub --network forum-feed --shm-size=1g \
             --publish 127.0.0.1:1200:1200 \
+            --volume /tmp/.X11-unix:/tmp/.X11-unix:ro --env DISPLAY=:99 \
             --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=14400 \
             --env CACHE_TYPE=memory --env NODE_ENV=production \
             --env EDU_KINGDOM_BROWSER_HELPER=http://browser-helper:8191/v1 \
@@ -115,6 +117,13 @@ jobs:
             sleep 2
           done
           [ "$ready" = true ]
+
+      - name: Check HKET access using the current Chromium browser
+        run: |
+          docker cp hket_browser.mjs rsshub:/app/hket_browser.mjs
+          docker exec --detach rsshub node /app/hket_browser.mjs
+          sleep 3
+          python3 -c "from hket_feed import browser_html, Page, SOURCE; p=Page(browser_html(SOURCE+'?p=1')); assert p.links, 'HKET list unavailable'; print('HKET listing verified:', len(p.links), 'articles')"
 
       - name: Restore verified original topic timestamps
         uses: actions/cache/restore@v4

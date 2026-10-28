@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import subprocess
 import time
 from urllib.parse import urlparse, quote
 from urllib.request import Request, urlopen
@@ -110,6 +111,17 @@ def browser_html(url):
             return html
     except (OSError, ValueError):
         pass
+    # Reuse the newer RSSHub Chromium with an ephemeral virtual display.
+    script = '''const r = await fetch('http://127.0.0.1:1201/?url=' + encodeURIComponent(process.argv[1])); console.log(await r.text());'''
+    try:
+        result = subprocess.run(['docker', 'exec', 'rsshub', 'node', '--input-type=module', '-e', script, url],
+                                capture_output=True, timeout=85, check=True)
+        result = json.loads(result.stdout.decode('utf-8'))
+        if result.get('html'):
+            return result['html']
+        print(json.dumps({'hket_chromium_error': result}), flush=True)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(f'HKET Chromium transport unavailable: {exc}', flush=True)
     body = json.dumps({'cmd': 'request.get', 'url': url, 'session': 'edu-kingdom-feed', 'maxTimeout': 60000}).encode()
     request = Request('http://127.0.0.1:8191/v1', data=body, headers={'Content-Type': 'application/json'})
     try:

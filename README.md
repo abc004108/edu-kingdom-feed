@@ -18,7 +18,7 @@ One GitHub Actions job updates all thirteen forums every four hours. It starts R
 | 飞客 | 万豪旅享家 | [63](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/63.xml) |
 | 飞客 | 用卡热点 | [59](https://abc004108.github.io/edu-kingdom-feed/feeds/flyert/59.xml) |
 
-Import [all fourteen subscriptions](https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml), [Baby-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/baby-kingdom.opml), [Flyert only](https://abc004108.github.io/edu-kingdom-feed/flyert.opml), or [Edu-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/edu-kingdom.opml).
+Import [all subscriptions](https://abc004108.github.io/edu-kingdom-feed/subscriptions.opml), [Baby-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/baby-kingdom.opml), [Flyert only](https://abc004108.github.io/edu-kingdom-feed/flyert.opml), or [Edu-Kingdom only](https://abc004108.github.io/edu-kingdom-feed/edu-kingdom.opml).
 
 The original [feed.xml](https://abc004108.github.io/edu-kingdom-feed/feed.xml) remains an alias for Edu-Kingdom 368 with the same item GUIDs. [Collection status](https://abc004108.github.io/edu-kingdom-feed/status.json) reports each forum separately.
 
@@ -53,10 +53,12 @@ This uses a public repository, standard GitHub-hosted Ubuntu runners, GitHub Pag
 
 The separate `routes/flyert/new-topics.ts` route uses the supplied `filter=lastpost&orderby=dateline` query. Topic creation order comes from `orderby=dateline`; item identity is the permanent thread URL. It reads only unpinned `normalthread` rows, uses original-author dates instead of latest-reply dates, and decodes the source's GBK encoding. It requests the public list directly, with the shared browser helper as a fallback. It does not fetch individual post bodies. The existing upstream Flyert routes are retained.
 
-For example, add `{"site": "flyert", "id": 228, "name": "海外用卡"}` to the forum configuration. The RSSHub path is `/flyert/new-topics/228`; the published file is `feeds/flyert/228.xml`. Import `flyert.opml` for the four Flyert subscriptions, or `subscriptions.opml` for all fourteen.
+For example, add `{"site": "flyert", "id": 228, "name": "海外用卡"}` to the forum configuration. The RSSHub path is `/flyert/new-topics/228`; the published file is `feeds/flyert/228.xml`. Import `flyert.opml` for the four Flyert subscriptions, or `subscriptions.opml` for all available feeds.
 
-## HKET instant news
+## HKET instant news (cloud access currently blocked)
 
-Subscribe to https://abc004108.github.io/edu-kingdom-feed/feeds/hket/inews.xml or import hket.opml. The shared four-hour Actions job runs hket_feed.py alongside the forum RSSHub collector, using the same temporary guest browser session. HKET summaries come from public NewsArticle description metadata; pubDate comes strictly from datePublished, never dateModified or collection time. All dates use HKT (+0800). No article body or subscriber-only content is collected.
+hket_feed.py implements the requested https://inews.hket.com/sran001/全部 listing with public summary descriptions and original datePublished times in HKT. It was tested with the source article metadata and 22 publishing/parsing tests. Direct HTTP, FlareSolverr (60 seconds), and the current RSSHub Chromium running on a temporary virtual display were tested on GitHub. HKET presented an interactive Human Verification page to the cloud browser. The HKET feed is not available until the first successful unattended collection; no empty or sample feed is published.
 
-The first run seeds up to three listing pages. Later runs walk up to twenty pages, stopping after a page of already-known articles, with a ten-minute collection budget. The latest 500 verified articles are retained across runs using both Actions cache and the previously published feed. Missing metadata and request errors are reported under news in status.json; valid saved articles remain available. A first run with no valid articles stops publication. Busy periods, prolonged outages, pagination changes, or the collection budget can still cause gaps.
+The collector is included in the same four-hour Actions job and retries on future runs. Failure is recorded under news in status.json and does not prevent existing forum feeds from updating. No personal browser cookies, CAPTCHA solver, paid proxy, or PC hosting are used. The intended output is feeds/hket/inews.xml with hket.opml and an entry in subscriptions.opml, created only after real article data is collected.
+
+When source access succeeds, summaries come from public NewsArticle description metadata; pubDate comes strictly from datePublished, never dateModified or collection time. No article body or subscriber-only content is collected. The first successful run seeds up to three listing pages. Later runs walk up to twenty pages, stopping after a page of already-known articles, with a ten-minute collection budget. The latest 500 verified articles are retained using both Actions cache and the previously published feed. Busy periods, prolonged outages, pagination changes, and the collection budget can cause gaps.

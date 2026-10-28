@@ -120,6 +120,8 @@ def browser_html(url):
         if result.get('html'):
             return result['html']
         print(json.dumps({'hket_chromium_error': result}), flush=True)
+        if result.get('title') == 'Human Verification':
+            raise RuntimeError('HKET requires interactive human verification on this GitHub runner; no unattended feed is available')
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f'HKET Chromium transport unavailable: {exc}', flush=True)
     body = json.dumps({'cmd': 'request.get', 'url': url, 'session': 'edu-kingdom-feed', 'maxTimeout': 60000}).encode()
@@ -132,7 +134,11 @@ def browser_html(url):
     solution = result.get('solution', {})
     if result.get('status') != 'ok' or solution.get('status') != 200:
         raise ValueError(f"HKET browser request failed: {solution.get('status')} {result.get('message', '')}")
-    return solution.get('response', '')
+    html = solution.get('response', '')
+    page = Page(html)
+    if not page.links and not any(obj.get('@type') == 'NewsArticle' for obj in nodes(page.scripts)):
+        raise ValueError('HKET returned a verification page instead of article data')
+    return html
 
 
 def render(articles, feed_url):
@@ -190,7 +196,7 @@ def collect(output, base_url, cache_path='.hket-cache/articles.json', fetch_html
             links = Page(fetch_html(SOURCE + f'?p={page}')).links
             if not links:
                 raise ValueError('HKET listing has no article links')
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, RuntimeError) as exc:
             errors.append({'page': page, 'error': str(exc)})
             break
         fresh = [link for link in links if link not in articles and link not in discovered]
@@ -207,7 +213,7 @@ def collect(output, base_url, cache_path='.hket-cache/articles.json', fetch_html
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 cache_path.write_text(json.dumps(list(articles.values()), ensure_ascii=False), encoding='utf-8')
                 print(json.dumps({'hket_article': link, 'published': articles[link]['published'], 'collected': completed}), flush=True)
-            except (OSError, ValueError) as exc:
+            except (OSError, ValueError, RuntimeError) as exc:
                 failures += 1
                 errors.append({'link': link, 'error': str(exc)})
                 if failures >= 3:
@@ -243,4 +249,13 @@ def collect(output, base_url, cache_path='.hket-cache/articles.json', fetch_html
 
 
 if __name__ == '__main__':
-    collect(*sys.argv[1:])
+    try:
+        collect(*sys.argv[1:])
+    except (OSError, ValueError, RuntimeError, ET.ParseError) as exc:
+        status_path = Path(sys.argv[1], 'status.json')
+        status = json.loads(status_path.read_text(encoding='utf-8'))
+        status['news'] = [{'site': 'hket', 'path': FEED_PATH, 'state': 'failed',
+                           'checked_at': datetime.now(HKT).isoformat(), 'error': str(exc)}]
+        status_path.write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding='utf-8')
+        print(f'::warning::{exc}', flush=True)
+        sys.exit(1)

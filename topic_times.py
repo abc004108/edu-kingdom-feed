@@ -81,6 +81,7 @@ class TopicTimes:
         self.attempts = 0
         self.failures = []
         self.host_failures = {}
+        self.pages = {}
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -116,12 +117,15 @@ class TopicTimes:
                 with urlopen(request, timeout=8) as response:
                     charset = response.headers.get_content_charset() or 'gbk'
                     html = response.read().decode(charset)
+                self.pages[link] = html
                 date = original_time(html)
                 time.sleep(1.5)
             except (OSError, ValueError, TimeoutError):
                 pass
         if date is None:
-            date = original_time(self.fetch_html(link))
+            html = self.fetch_html(link)
+            self.pages[link] = html
+            date = original_time(html)
         self.values[link] = date.isoformat()
         self.host_failures[parsed.hostname] = 0
         self.save()

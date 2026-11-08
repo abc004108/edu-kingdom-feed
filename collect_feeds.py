@@ -40,7 +40,7 @@ def load_config(path):
     return forums
 
 
-def collect(forums, output, base_url, fetcher=fetch, timestamp_resolver=None):
+def collect(forums, output, base_url, fetcher=fetch, timestamp_resolver=None, content_resolver=None):
     output = Path(output)
     base_url = base_url.rstrip('/')
     results, prepared, missing = [], [], []
@@ -72,6 +72,9 @@ def collect(forums, output, base_url, fetcher=fetch, timestamp_resolver=None):
         if data is not None and timestamp_resolver is not None:
             data, resolved = timestamp_resolver.enrich(data)
             timing = {'original_times': resolved, 'undated_items': len(ET.fromstring(data).findall('channel/item')) - resolved}
+        if data is not None and content_resolver is not None:
+            data, count = content_resolver.enrich(data)
+            timing.update({'descriptions': count, 'unavailable_descriptions': len(ET.fromstring(data).findall('channel/item')) - count})
         results.append({'site': site, 'id': fid, 'name': name, 'path': path, 'state': state, 'error': error, **timing})
         if data is not None:
             prepared.append((forum, data))
@@ -111,9 +114,14 @@ def write_opml(path, forums, base_url, title):
 
 if __name__ == '__main__':
     from topic_times import TopicTimes
+    from topic_content import TopicContent
     config, output, base_url = sys.argv[1:]
     times = TopicTimes('.topic-cache/topic-times.json')
-    results = collect(load_config(config), output, base_url, timestamp_resolver=times)
+    content = TopicContent(times)
+    results = collect(load_config(config), output, base_url, timestamp_resolver=times, content_resolver=content)
+    if content.failures:
+        Path(output, 'description-errors.json').write_text(json.dumps(content.failures, indent=2), encoding='utf-8')
+        print(f'::warning::{len(content.failures)} descriptions unavailable; see description-errors.json')
     if times.failures:
         print(f'::warning::{len(times.failures)} original timestamps unavailable; those items have no pubDate')
         Path(output, 'timestamp-errors.json').write_text(json.dumps(times.failures, indent=2), encoding='utf-8')

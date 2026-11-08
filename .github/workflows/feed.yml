@@ -6,7 +6,7 @@ on:
     - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'topic_times.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
 
 permissions:
   contents: read
@@ -127,7 +127,7 @@ jobs:
       - name: Restore verified original topic timestamps
         uses: actions/cache/restore@v4
         with:
-          path: .topic-cache/topic-times.json
+          path: .topic-cache
           key: topic-times-v1-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: topic-times-v1-
 
@@ -141,7 +141,7 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: .topic-cache/topic-times.json
+          path: .topic-cache
           key: topic-times-v1-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Restore HKET article history

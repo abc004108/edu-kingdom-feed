@@ -70,9 +70,12 @@ def collect(forums, output, base_url, fetcher=fetch, timestamp_resolver=None, co
                 missing.append(f'{site}/{fid}')
         timing = {}
         if data is not None and timestamp_resolver is not None:
+            # One unavailable forum must not suppress requests in other forums.
+            timestamp_resolver.host_failures.clear()
             data, resolved = timestamp_resolver.enrich(data)
             timing = {'original_times': resolved, 'undated_items': len(ET.fromstring(data).findall('channel/item')) - resolved}
         if data is not None and content_resolver is not None:
+            content_resolver.host_failures.clear()
             data, count = content_resolver.enrich(data)
             timing.update({'descriptions': count, 'unavailable_descriptions': len(ET.fromstring(data).findall('channel/item')) - count})
         results.append({'site': site, 'id': fid, 'name': name, 'path': path, 'state': state, 'error': error, **timing})

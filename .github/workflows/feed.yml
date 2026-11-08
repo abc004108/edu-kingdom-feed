@@ -167,12 +167,15 @@ jobs:
       - name: Upload the validated feed
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: public
           retention-days: 1
 
       - name: Publish on GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
 
       - name: Inspect forum page on failure
         if: failure()

@@ -65,4 +65,20 @@ When source access succeeds, summaries come from public NewsArticle description 
 
 ## Original post descriptions
 
+## X account subscriptions
+
+Add accounts to `x_accounts.json`, for example:
+
+```json
+{"handle":"TJ_Research","name":"投资TALK君","include_replies":false,"include_reposts":false}
+```
+
+Each account publishes at `feeds/x/HANDLE_IN_LOWERCASE.xml` after its first successful fetch. Import `x.opml` for X subscriptions or `subscriptions.opml` for all available feeds. Replies and reposts can be enabled independently.
+
+Add `TWITTER_AUTH_TOKEN` in repository Settings > Secrets and variables > Actions. Enter the `auth_token` cookie from your signed-in X browser directly in GitHub; keep it out of source files and chat. The cookie grants X session access. RSSHub uses its authenticated web route in the temporary container. No paid developer API is configured. X may expire or restrict this session.
+
+X feeds use the same four-hour schedule, original HKT publication times, post descriptions, stable status-ID GUIDs and up to 200 recent posts. New posts merge with the published feed. Fetch failures preserve validated previous content; an account with no successful fetch produces no empty/sample feed. `status.json` reports account states under `x`. After saving a secret, run Actions > Update forum feeds > Run workflow, or wait for the next schedule.
+
+### Forum content extraction
+
 All thirteen forum feeds now extract the publicly visible first post into description, including text, paragraphs and images. Quoted replies, edits, signatures, scripts and restricted blocks are excluded. Topic URLs/GUIDs and HKT publication times remain unchanged. Content is cached in .topic-cache/post-content.json across runs; cached content reflects the first successful retrieval. Status fields descriptions and unavailable_descriptions report actual extraction coverage. Unavailable posts retain an existing description, or show a link to read the topic. See description-errors.json for failures.

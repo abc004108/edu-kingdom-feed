@@ -1,5 +1,22 @@
 {
   "accounts": [
-    {"handle": "TJ_Research", "name": "投资TALK君", "include_replies": false, "include_reposts": false}
+    {
+      "handle": "TJ_Research",
+      "name": "投资TALK君",
+      "include_replies": false,
+      "include_reposts": false
+    },
+    {
+      "handle": "iamramenpanda",
+      "name": "iamramenpanda",
+      "include_replies": false,
+      "include_reposts": false
+    },
+    {
+      "handle": "LizAnnSonders",
+      "name": "LizAnnSonders",
+      "include_replies": false,
+      "include_reposts": false
+    }
   ]
 }

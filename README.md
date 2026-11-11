@@ -67,6 +67,16 @@ When source access succeeds, summaries come from public NewsArticle description 
 
 ## X account subscriptions
 
+## Facebook public group subscriptions
+
+Add entries to `facebook_groups.json`, such as `{"id":"taiwaifestivalcity","public":true}`. This is a group route, distinct from Facebook Pages. Each group must be confirmed public because GitHub Pages exposes the feed to everyone. Set optional `name` for a display label and `numeric_id` if Facebook prevents automatic username resolution. Credentials belong in GitHub Actions secrets, never this JSON file.
+
+Feeds publish at `feeds/facebook/GROUP_ID_IN_LOWERCASE.xml` after the first successful fetch. Import `facebook.opml` for Facebook-only subscriptions; successful groups also appear in `subscriptions.opml`. Posts include sanitized text/media, stable post-ID GUIDs and original HKT publication times. Up to 200 recent posts are retained across the four-hour runs. `status.json` reports each group under `facebook`; initial failures produce no empty/sample feed and do not interrupt the existing feeds.
+
+Guest access is attempted first. If Facebook requires login, add a repository Actions secret named `FACEBOOK_COOKIE` containing `c_user=VALUE; xs=VALUE;` from an account that can view the public group. These cookies grant Facebook session access: enter them directly in GitHub, not chat or source files. A session may expire or require Facebook verification, and successful scraping is not guaranteed. Re-run the workflow after saving a secret.
+
+### X account configuration
+
 Add accounts to `x_accounts.json`, for example:
 
 ```json

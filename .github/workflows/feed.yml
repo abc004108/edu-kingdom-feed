@@ -6,7 +6,7 @@ on:
     - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'collect_x.py', 'x_accounts.json', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'collect_x.py', 'x_accounts.json', 'collect_facebook.py', 'facebook_groups.json', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
 
 permissions:
   contents: read
@@ -100,6 +100,7 @@ jobs:
       - name: Start RSSHub temporarily
         env:
           TWITTER_AUTH_TOKEN: ${{ secrets.TWITTER_AUTH_TOKEN }}
+          FACEBOOK_COOKIE: ${{ secrets.FACEBOOK_COOKIE }}
         run: |
           Xvfb :99 -screen 0 1365x900x24 -nolisten tcp > /tmp/hket-xvfb.log 2>&1 &
           docker run --detach --name rsshub --network forum-feed --shm-size=1g \
@@ -108,6 +109,7 @@ jobs:
             --env TZ=Asia/Hong_Kong --env CACHE_EXPIRE=14400 \
             --env CACHE_TYPE=memory --env NODE_ENV=production \
             --env TWITTER_AUTH_TOKEN \
+            --env FACEBOOK_COOKIE \
             --env EDU_KINGDOM_BROWSER_HELPER=http://browser-helper:8191/v1 \
             --env EDU_KINGDOM_BROWSER_SESSION=edu-kingdom-feed \
             edu-kingdom-rsshub:feed
@@ -172,6 +174,12 @@ jobs:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
           X_AUTH_CONFIGURED: ${{ secrets.TWITTER_AUTH_TOKEN != '' }}
         run: python3 collect_x.py x_accounts.json public "$PAGES_BASE_URL"
+
+      - name: Collect configured public Facebook groups
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          FACEBOOK_COOKIE: ${{ secrets.FACEBOOK_COOKIE }}
+        run: python3 collect_facebook.py facebook_groups.json public "$PAGES_BASE_URL"
 
       - name: Upload the validated feed
         uses: actions/upload-pages-artifact@v3

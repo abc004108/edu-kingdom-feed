@@ -12,22 +12,24 @@ from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 from prepare_feed import HKT, SITES
+from original_post import first_page_url, original_pid, migrate_flyert_cache
 
 
 class PostTimeParser(HTMLParser):
-    def __init__(self):
+    def __init__(self, pid=None):
         super().__init__()
         self.depth = 0
         self.first = None
         self.capture = False
         self.values = []
         self.meta = []
+        self.target = 'authorposton' + pid if pid else None
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if tag == 'meta' and (attrs.get('property') == 'article:published_time' or attrs.get('itemprop') == 'datePublished'):
             self.meta.append(attrs.get('content', ''))
-        if self.first is None and re.fullmatch(r'authorposton\d+', attrs.get('id', '')):
+        if self.first is None and re.fullmatch(r'authorposton\d+', attrs.get('id', '')) and (not self.target or attrs.get('id') == self.target):
             self.first = attrs['id']
             self.capture = True
             self.depth = 1
@@ -47,8 +49,14 @@ class PostTimeParser(HTMLParser):
             self.values.append(data)
 
 
-def original_time(html):
-    parser = PostTimeParser()
+def original_time(html, strict=False):
+    try:
+        pid = original_pid(html, strict)
+    except ValueError:
+        if strict:
+            raise
+        pid = None
+    parser = PostTimeParser(pid)
     parser.feed(html)
     # Inspect only the first author's timestamp or explicit publication metadata.
     # Never search arbitrary page text, which can contain reply/edit times.
@@ -77,6 +85,7 @@ class TopicTimes:
         self.values = {}
         if self.path.exists():
             self.values = json.loads(self.path.read_text(encoding='utf-8'))
+        self.values = migrate_flyert_cache(self.path, self.values)
         self.fetch_html = fetch_html or self.browser_html
         self.attempts = 0
         self.failures = []
@@ -91,7 +100,7 @@ class TopicTimes:
     def browser_html(link):
         helper = os.environ.get('FORUM_BROWSER_HELPER', 'http://127.0.0.1:8191/v1')
         session = os.environ.get('FORUM_BROWSER_SESSION', 'edu-kingdom-feed')
-        body = json.dumps({'cmd':'request.get', 'url':link+'&page=1&ordertype=1', 'session':session, 'maxTimeout':15000}).encode()
+        body = json.dumps({'cmd':'request.get', 'url':first_page_url(link), 'session':session, 'maxTimeout':15000}).encode()
         with urlopen(Request(helper, data=body, headers={'Content-Type':'application/json'}), timeout=20) as response:
             result = json.load(response)
         solution = result.get('solution', {})
@@ -113,19 +122,19 @@ class TopicTimes:
         # reducing browser traffic and avoiding unnecessary session restrictions.
         if parsed.hostname == 'www.flyert.com.cn':
             try:
-                request = Request(link+'&page=1&ordertype=1', headers={'User-Agent':'Mozilla/5.0 (compatible; ForumFeedCollector/1.0)'})
+                request = Request(first_page_url(link), headers={'User-Agent':'Mozilla/5.0 (compatible; ForumFeedCollector/1.0)'})
                 with urlopen(request, timeout=8) as response:
                     charset = response.headers.get_content_charset() or 'gbk'
                     html = response.read().decode(charset)
                 self.pages[link] = html
-                date = original_time(html)
+                date = original_time(html, strict=True)
                 time.sleep(1.5)
             except (OSError, ValueError, TimeoutError):
                 pass
         if date is None:
             html = self.fetch_html(link)
             self.pages[link] = html
-            date = original_time(html)
+            date = original_time(html, strict=parsed.hostname == 'www.flyert.com.cn')
         self.values[link] = date.isoformat()
         self.host_failures[parsed.hostname] = 0
         self.save()

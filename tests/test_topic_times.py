@@ -29,7 +29,7 @@ class OriginalTimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             response = MagicMock()
             response.headers.get_content_charset.return_value = 'gbk'
-            response.read.return_value = '<em id="authorposton1">发表于 2026-10-27 18:19:42</em>'.encode('gbk')
+            response.read.return_value = '<a id="postnum1">1</a><em id="authorposton1">发表于 2026-10-27 18:19:42</em>'.encode('gbk')
             response.__enter__.return_value = response
             resolver = TopicTimes(Path(tmp, 'times.json'), lambda link: self.fail('Direct HTML should suffice'))
             with patch('topic_times.urlopen', return_value=response), patch('topic_times.time.sleep'):

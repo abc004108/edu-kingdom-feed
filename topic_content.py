@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 
 from prepare_feed import SITES
 from topic_times import PostTimeParser
+from original_post import first_page_url, original_pid, migrate_flyert_cache
 
 VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'}
 
@@ -75,11 +76,7 @@ class PostBody(HTMLParser):
 
 
 def original_content(html, link):
-    header = PostTimeParser()
-    header.feed(html)
-    if not header.first:
-        raise ValueError('Original author header missing; refusing to use a reply')
-    pid = re.search(r'\d+$', header.first).group()
+    pid = original_pid(html, strict=urlparse(link).hostname == 'www.flyert.com.cn')
     parser = PostBody('postmessage_' + pid, link)
     parser.feed(html)
     result = re.sub(r'\n[ \t\r\n]*\n+', '\n\n', ''.join(parser.parts)).strip()
@@ -92,6 +89,7 @@ class TopicContent:
     def __init__(self, timestamps, path='.topic-cache/post-content.json', fetch_html=None):
         self.timestamps, self.path = timestamps, Path(path)
         self.values = json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {}
+        self.values = migrate_flyert_cache(self.path, self.values)
         self.fetch_html = fetch_html
         self.failures, self.host_failures = [], {}
 
@@ -108,7 +106,7 @@ class TopicContent:
             html = self.fetch_html(link)
         if html is None and host == 'www.flyert.com.cn':
             try:
-                with urlopen(Request(link + '&page=1&ordertype=1', headers={'User-Agent': 'Mozilla/5.0'}), timeout=8) as response:
+                with urlopen(Request(first_page_url(link), headers={'User-Agent': 'Mozilla/5.0'}), timeout=8) as response:
                     html = response.read().decode(response.headers.get_content_charset() or 'gbk')
                 result = original_content(html, link)
             except (OSError, ValueError):
@@ -136,7 +134,7 @@ class TopicContent:
                 self.failures.append({'link': link, 'error': str(exc)})
                 host = urlparse(link).hostname
                 self.host_failures[host] = self.host_failures.get(host, 0) + 1
-                if not description.text:
+                if not description.text or urlparse(link).hostname == 'www.flyert.com.cn':
                     description.text = '<p>Original post could not be retrieved. <a href="' + escape(link, quote=True) + '">Read the topic</a>.</p>'
             if link in self.values:
                 count += 1

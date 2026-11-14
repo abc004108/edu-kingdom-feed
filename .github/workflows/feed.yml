@@ -9,6 +9,7 @@ on:
     paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'collect_x.py', 'x_accounts.json', 'collect_facebook.py', 'facebook_groups.json', 'original_post.py', 'scripts/check_flyert_original.py', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -191,6 +192,27 @@ jobs:
           name: github-pages-${{ github.run_attempt }}
           path: public
           retention-days: 1
+
+      - name: Wait for uploaded Pages artifact to become visible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import json, os, time
+          from urllib.request import Request, urlopen
+          url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}/artifacts"
+          for attempt in range(24):
+              request = Request(url, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              with urlopen(request, timeout=20) as response:
+                  artifacts = json.load(response)['artifacts']
+              if any(item['name'] == os.environ['PAGES_ARTIFACT'] for item in artifacts):
+                  print('Pages artifact metadata is available')
+                  break
+              time.sleep(5)
+          else:
+              raise RuntimeError('Uploaded Pages artifact metadata is still unavailable')
+          PY
 
       - name: Publish on GitHub Pages
         id: deployment

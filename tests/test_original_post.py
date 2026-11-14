@@ -27,6 +27,19 @@ class FirstPostTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             original_time(html, strict=True)
 
+    def test_flyert_unnumbered_lead_layout_with_numbered_replies(self):
+        html = '''<a id="postnum900">板凳</a><em id="authorposton900">2026-11-14 22:00</em>
+        <td id="postmessage_900">Latest reply</td>
+        <em id="authorposton100">2026-11-10 09:15</em>
+        <em id="authorposton100">2026-11-10 09:15</em>
+        <td id="postmessage_100">Original article in Flyert lead section</td>'''
+        self.assertEqual(original_pid(html, strict=True), '100')
+        self.assertEqual(original_content(html, LINK), '<div>Original article in Flyert lead section</div>')
+        self.assertEqual(original_time(html, strict=True).day, 10)
+        reply_only = html[:html.index('<em id="authorposton100"')]
+        with self.assertRaises(ValueError):
+            original_content(reply_only, LINK)
+
     def test_url_removes_lastpost_and_author_filters_and_reverse_order(self):
         url = first_page_url(LINK + '&page=8&ordertype=1&authorid=222&goto=lastpost#lastpost')
         self.assertEqual(parse_qs(urlparse(url).query), {'mod':['viewthread'], 'tid':['123'], 'page':['1'], 'ordertype':['2']})

@@ -45,6 +45,16 @@ def original_pid(html, strict=False):
         label = re.sub(r'\s+', '', label)
         if label in {'1', '1#', '1楼', '1樓', '楼主', '樓主'} and pid in data.headers:
             return pid
+    # Flyert's lead-post layout has two author/date headers for the same post
+    # (the article header and author panel), but no reply-floor/postnum link.
+    # Replies have postnum links. Require a unique unnumbered lead post, a body,
+    # duplicate header references and the oldest PID; never use display order.
+    leads = {pid for pid in data.headers if pid not in data.labels and data.headers.count(pid) >= 2
+             and re.search(r'id=["\']postmessage_' + pid + r'["\']', html)}
+    if len(leads) == 1:
+        lead = next(iter(leads))
+        if int(lead) == min(map(int, data.headers)):
+            return lead
     if strict:
         raise ValueError('Cannot verify first-floor marker; refusing to use a reply. Floors: ' + repr(list(data.labels.values())[:4]))
     if not data.headers:

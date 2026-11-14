@@ -10,6 +10,7 @@ import re
 import sys
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import xml.etree.ElementTree as ET
 
 from prepare_feed import HKT
@@ -82,8 +83,22 @@ def groups(path):
 
 
 def fetch(url):
-    with urlopen(Request(url, headers={'User-Agent': 'FacebookGroupFeedPublisher/1.0'}), timeout=100) as response:
-        return response.read()
+    try:
+        with urlopen(Request(url, headers={'User-Agent': 'FacebookGroupFeedPublisher/1.0'}), timeout=100) as response:
+            return response.read()
+    except HTTPError as exc:
+        if url.startswith('http://127.0.0.1:1200/facebook/'):
+            body = exc.read(120000).decode('utf-8', errors='replace').lower()
+            reason = 'source request failed'
+            for phrase, label in [('rate limit', 'Facebook rate limit'), ('not found', 'group lookup failed'),
+                                  ('login', 'Facebook login required'), ('logged in', 'Facebook session required'),
+                                  ('checkpoint', 'Facebook verification required'), ('dtsg', 'Facebook session initialization failed'),
+                                  ('graphql', 'Facebook GraphQL request failed')]:
+                if phrase in body:
+                    reason = label
+                    break
+            raise ValueError(f'RSSHub HTTP {exc.code}: {reason}') from exc
+        raise
 
 
 def resolve_id(group):
@@ -168,13 +183,14 @@ def collect(config, output, base, fetcher=fetch, resolver=resolve_id):
     results, available = [], []
     for group in groups(config):
         identifier, path = group['id'], group['path']
-        group['resolved_id'] = resolver(group)
         prior, previous, title = None, {}, identifier
         try:
             prior = fetcher(base + '/' + path)
             previous, title = read_feed(prior, group)
         except (OSError, ValueError, TypeError, ET.ParseError):
             prior, previous = None, {}
+        saved_id = ET.fromstring(prior).findtext('channel/{urn:feed-publisher}facebookGroupId', '') if prior else ''
+        group['resolved_id'] = str(group.get('numeric_id') or (saved_id if saved_id.isdigit() else '') or resolver(group))
         payload, error = prior, None
         try:
             latest, title = read_feed(fetcher('http://127.0.0.1:1200/facebook/group/' + group['resolved_id']), group)
@@ -189,7 +205,8 @@ def collect(config, output, base, fetcher=fetch, resolver=resolve_id):
             target.write_bytes(payload)
             available.append(group)
         results.append({'id': identifier, 'resolved_id': group['resolved_id'], 'state': state, 'path': path if payload else None,
-                        'items': min(len(previous), 200), 'checked_at': datetime.now(HKT).isoformat(), 'error': error})
+                        'items': min(len(previous), 200), 'authentication_configured': bool(os.environ.get('FACEBOOK_COOKIE')),
+                        'checked_at': datetime.now(HKT).isoformat(), 'error': error})
     path = output / 'status.json'
     status = json.loads(path.read_text(encoding='utf-8'))
     status['facebook'] = results

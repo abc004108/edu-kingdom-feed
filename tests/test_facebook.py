@@ -66,5 +66,21 @@ class FacebookTests(unittest.TestCase):
             self.assertEqual(status['forums'], [1])
             self.assertEqual(status['x'], [2])
 
+    def test_saved_numeric_id_is_reused_without_a_group_name_lookup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root / 'groups.json'
+            config.write_text(json.dumps({'groups': [{'id': 'taiwaifestivalcity', 'public': True}]}))
+            (root / 'status.json').write_text('{}')
+            posts, title = read_feed(fixture(), GROUP)
+            saved = render(posts, GROUP, title, 'https://example.org/feed.xml')
+            requested = []
+            def fetcher(url):
+                requested.append(url)
+                return saved if url.startswith('https://example.org/') else fixture()
+            collect(config, root, 'https://example.org', fetcher, lambda g: self.fail('Must reuse saved numeric ID'))
+            self.assertIn('http://127.0.0.1:1200/facebook/group/12345', requested)
+            self.assertEqual(json.loads((root / 'status.json').read_text())['facebook'][0]['state'], 'updated')
+
 if __name__ == '__main__':
     unittest.main()

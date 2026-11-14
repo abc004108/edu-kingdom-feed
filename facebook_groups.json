@@ -1,5 +1,9 @@
 {
   "groups": [
-    {"id": "taiwaifestivalcity", "public": true}
+    {
+      "id": "taiwaifestivalcity",
+      "public": true,
+      "numeric_id": "663672811292204"
+    }
   ]
 }

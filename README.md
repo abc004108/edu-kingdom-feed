@@ -92,3 +92,24 @@ X feeds use the same four-hour schedule, original HKT publication times, post de
 ### Forum content extraction
 
 All thirteen forum feeds now extract the publicly visible first post into description, including text, paragraphs and images. Quoted replies, edits, signatures, scripts and restricted blocks are excluded. Topic URLs/GUIDs and HKT publication times remain unchanged. Content is cached in .topic-cache/post-content.json across runs; cached content reflects the first successful retrieval. Status fields descriptions and unavailable_descriptions report actual extraction coverage. Unavailable posts retain an existing description, or show a link to read the topic. See description-errors.json for failures.
+
+
+## HongKongCard forum
+
+Subscribe to [HongKongCard discussions](https://abc004108.github.io/edu-kingdom-feed/feeds/hongkongcard/forum.xml).
+The feed selects the first 20 topics shown on the forum homepage, including pinned topics,
+then sorts them by their latest reply time. Each topic contains its original post and up to
+50 latest replies, newest first. All timestamps use Hong Kong time (+0800).
+The RSS publication date represents the latest reply (or original creation time if there
+are no replies); the original post and individual reply times appear in the description.
+Topic GUIDs remain stable across refreshes. Inoreader may update an existing item without
+marking it unread again; sort the subscription by newest date to follow current activity.
+
+The collector uses the site's public JSON requests without credentials. Reply pagination
+starts at the last page and moves backwards until 50 unique replies are available, avoiding
+downloads of a topic's entire history. The `hongkongcard.json` settings control topic and
+reply limits. Collection runs every four hours in the existing workflow and adds this feed
+to `subscriptions.opml`. On source failure, the last complete validated snapshot is preserved
+and `status.json` reports the error.
+
+Local usage: `python collect_hongkongcard.py hongkongcard.json public https://abc004108.github.io/edu-kingdom-feed`

@@ -6,7 +6,7 @@ on:
     - cron: '17 0,4,8,12,16,20 * * *'
   push:
     branches: [main]
-    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'collect_x.py', 'x_accounts.json', 'collect_facebook.py', 'facebook_groups.json', 'original_post.py', 'scripts/check_flyert_original.py', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
+    paths: ['.github/workflows/feed.yml', 'routes/**', 'prepare_feed.py', 'collect_feeds.py', 'collect_x.py', 'x_accounts.json', 'collect_facebook.py', 'facebook_groups.json', 'collect_hongkongcard.py', 'hongkongcard.json', 'original_post.py', 'scripts/check_flyert_original.py', 'topic_times.py', 'topic_content.py', 'hket_feed.py', 'hket_browser.mjs', 'forums.json', 'tests/**']
 
 permissions:
   actions: read
@@ -185,6 +185,11 @@ jobs:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
           FACEBOOK_COOKIE: ${{ secrets.FACEBOOK_COOKIE }}
         run: python3 collect_facebook.py facebook_groups.json public "$PAGES_BASE_URL"
+
+      - name: Collect HongKongCard topics and latest replies
+        env:
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: python3 collect_hongkongcard.py hongkongcard.json public "$PAGES_BASE_URL"
 
       - name: Upload the validated feed
         uses: actions/upload-pages-artifact@v3

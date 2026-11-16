@@ -129,8 +129,10 @@ def render(topics, base_url, reply_limit):
         item = ET.SubElement(channel, 'item')
         ET.SubElement(item, 'title').text = topic['title'].strip()
         ET.SubElement(item, 'link').text = SITE + '/forum/show/' + str(int(topic['id']))
-        # Stable topic identity lets readers update the entry without duplicates.
-        ET.SubElement(item, 'guid', isPermaLink='false').text = 'hongkongcard:thread:' + str(int(topic['id']))
+        # A new reply creates a new topic snapshot; unchanged polls keep its identity.
+        latest = max(replies, key=lambda r: (stamp(r['created_at']), int(r['id'])), default=None)
+        version = 'reply:' + str(int(latest['id'])) if latest is not None else 'original'
+        ET.SubElement(item, 'guid', isPermaLink='false').text = f'hongkongcard:thread:{int(topic["id"])}:{version}'
         ET.SubElement(item, 'pubDate').text = format_datetime(activity)
         ET.SubElement(item, f'{{{ATOM}}}updated').text = activity.isoformat()
         ET.SubElement(item, f'{{{DC}}}creator').text = (topic.get('user') or {}).get('nickname', '')

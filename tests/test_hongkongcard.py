@@ -50,6 +50,29 @@ class HongKongCardTests(unittest.TestCase):
         self.assertNotIn('bad()', description)
         self.assertIn('hongkongcard:thread:20', first.findtext('guid'))
 
+    def test_new_reply_creates_new_entry_but_unchanged_polls_do_not(self):
+        topic = {'id': 1, 'title': 'Original', 'created_at': '2026-11-01 12:34:56', 'content': '<p>Original body</p>'}
+        def entry(replies):
+            date = datetime(2026, 11, 15, tzinfo=HKT)
+            return ET.fromstring(render([(topic, replies, date)], 'https://example.org', 50)).find('channel/item')
+        original = entry([])
+        first = entry([reply(1)])
+        repeat = entry([reply(1)])
+        changed_body = reply(1)
+        changed_body['content'] = '<p>Edited reply</p>'
+        edited = entry([changed_body])
+        newer = reply(2)
+        newer['created_at'] = reply(1)['created_at']  # Distinct replies can share a second.
+        second = entry([reply(1), newer])
+        self.assertEqual(original.findtext('guid'), 'hongkongcard:thread:1:original')
+        self.assertEqual(first.findtext('guid'), 'hongkongcard:thread:1:reply:1')
+        self.assertEqual(first.findtext('guid'), repeat.findtext('guid'))
+        self.assertEqual(first.findtext('guid'), edited.findtext('guid'))
+        self.assertEqual(second.findtext('guid'), 'hongkongcard:thread:1:reply:2')
+        self.assertIn('Original body', second.findtext('description'))
+        self.assertEqual(second.findtext('description').count('<h3>回覆 #'), 2)
+        self.assertEqual(first.findtext('link'), second.findtext('link'))
+
     def test_failed_refresh_preserves_whole_valid_snapshot(self):
         topic = {'id': 1, 'title': 'Original', 'created_at': '2026-11-01 12:34:56', 'content': '<p>Body</p>'}
         saved = render([(topic, [], datetime(2026, 11, 1, 12, 34, 56, tzinfo=HKT))], 'https://example.org', 50)

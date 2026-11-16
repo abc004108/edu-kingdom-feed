@@ -102,8 +102,12 @@ then sorts them by their latest reply time. Each topic contains its original pos
 50 latest replies, newest first. All timestamps use Hong Kong time (+0800).
 The RSS publication date represents the latest reply (or original creation time if there
 are no replies); the original post and individual reply times appear in the description.
-Topic GUIDs remain stable across refreshes. Inoreader may update an existing item without
-marking it unread again; sort the subscription by newest date to follow current activity.
+Topic GUIDs include the latest reply ID. A newly detected reply creates a new feed entry
+containing the original post and latest 50 replies; unchanged polls and content edits
+keep the same GUID. Topics without replies use an original-post GUID until their first
+reply arrives. Multiple replies between four-hour collections produce one new topic
+snapshot at the next successful collection. Switching from the previous stable topic
+GUIDs can make the current 20 topics appear new once.
 
 The collector uses the site's public JSON requests without credentials. Reply pagination
 starts at the last page and moves backwards until 50 unique replies are available, avoiding

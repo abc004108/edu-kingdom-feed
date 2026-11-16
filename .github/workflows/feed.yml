@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 40
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url || steps.deployment_final.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -221,6 +221,30 @@ jobs:
 
       - name: Publish on GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
+
+      - name: Allow GitHub Pages to recover before retrying
+        if: ${{ steps.deployment.outcome == 'failure' }}
+        run: sleep 30
+
+      - name: Retry GitHub Pages publication
+        if: ${{ steps.deployment.outcome == 'failure' }}
+        id: deployment_retry
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
+
+      - name: Allow a second recovery interval
+        if: ${{ steps.deployment_retry.outcome == 'failure' }}
+        run: sleep 30
+
+      - name: Final GitHub Pages publication attempt
+        if: ${{ steps.deployment_retry.outcome == 'failure' }}
+        id: deployment_final
         uses: actions/deploy-pages@v4
         with:
           artifact_name: github-pages-${{ github.run_attempt }}

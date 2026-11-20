@@ -1,0 +1,23 @@
+name: Diagnose Facebook access
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/diagnose_facebook.py
+      - .github/workflows/facebook-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check session and public-group requests without exposing credentials
+        env:
+          FACEBOOK_COOKIE: ${{ secrets.FACEBOOK_COOKIE }}
+        run: python3 scripts/diagnose_facebook.py

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 from collect_facebook import collect, groups, read_feed, render, sanitize
 
@@ -13,6 +14,24 @@ def fixture(group='12345', post='67890', description='Text &amp; 中文', date='
     <description>{description}</description><pubDate>{date}</pubDate></item></channel></rss>'''.encode()
 
 class FacebookTests(unittest.TestCase):
+    def test_disabled_fetching_preserves_feed_without_calling_facebook(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            config = root / 'groups.json'
+            config.write_text(json.dumps({'groups': [{'id': 'taiwaifestivalcity', 'public': True}]}))
+            (root / 'status.json').write_text('{}')
+            posts, title = read_feed(fixture(), GROUP)
+            saved = render(posts, GROUP, title, 'https://example.org/feed.xml')
+            def fetcher(url):
+                self.assertEqual(url, 'https://example.org/feeds/facebook/taiwaifestivalcity.xml')
+                return saved
+            with patch.dict('os.environ', {'FACEBOOK_FETCH_ENABLED': 'false'}):
+                collect(config, root, 'https://example.org', fetcher, lambda g: self.fail('Facebook lookup must be disabled'))
+            self.assertEqual((root / 'feeds/facebook/taiwaifestivalcity.xml').read_bytes(), saved)
+            result = json.loads((root / 'status.json').read_text())['facebook'][0]
+            self.assertEqual(result['state'], 'preserved')
+            self.assertIn('disabled', result['error'])
+
     def test_group_identity_content_hkt_and_alias_stable_guid(self):
         posts, title = read_feed(fixture(), GROUP)
         payload = render(posts, GROUP, title, 'https://example.org/feed.xml')

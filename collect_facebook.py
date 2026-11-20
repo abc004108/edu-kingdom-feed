@@ -181,6 +181,7 @@ def render(posts, group, title, feed_url):
 def collect(config, output, base, fetcher=fetch, resolver=resolve_id):
     output, base = Path(output), base.rstrip('/')
     results, available = [], []
+    enabled = os.environ.get('FACEBOOK_FETCH_ENABLED', 'true').lower() != 'false'
     for group in groups(config):
         identifier, path = group['id'], group['path']
         prior, previous, title = None, {}, identifier
@@ -190,9 +191,11 @@ def collect(config, output, base, fetcher=fetch, resolver=resolve_id):
         except (OSError, ValueError, TypeError, ET.ParseError):
             prior, previous = None, {}
         saved_id = ET.fromstring(prior).findtext('channel/{urn:feed-publisher}facebookGroupId', '') if prior else ''
-        group['resolved_id'] = str(group.get('numeric_id') or (saved_id if saved_id.isdigit() else '') or resolver(group))
+        group['resolved_id'] = str(group.get('numeric_id') or (saved_id if saved_id.isdigit() else '') or (resolver(group) if enabled else identifier))
         payload, error = prior, None
         try:
+            if not enabled:
+                raise ValueError('Facebook fetching disabled after account security alert')
             latest, title = read_feed(fetcher('http://127.0.0.1:1200/facebook/group/' + group['resolved_id']), group)
             previous.update(latest)
             payload = render(previous, group, title, base + '/' + path)

@@ -87,6 +87,20 @@ def main():
                      'redirected_to_login': '/login' in urlparse(url).path,
                      'embedded_story_markers': len(re.findall(r'"__typename"\s*:\s*"Story"', html))}}), flush=True)
 
+    if not lsd or not logged_in:
+        status, home, url = request('/')
+        home_ids = re.findall(r'"(?:USER_ID|actorID|actorId)"\s*:\s*"(\d+)"', home)
+        home_lsd = find_token(home, 'lsd')
+        print(json.dumps({'homepage': {'http_status': status, 'logged_in_account_matches': values['c_user'] in home_ids,
+                         'anonymous_identity_present': '0' in home_ids, 'lsd_present': bool(home_lsd),
+                         'redirected_to_login': '/login' in urlparse(url).path,
+                         'checkpoint': '/checkpoint' in urlparse(url).path,
+                         'login_form_present': 'name="email"' in home and 'name="pass"' in home}}), flush=True)
+        if home_lsd:
+            lsd = home_lsd
+            dtsg = find_token(home, 'dtsg') or dtsg
+            logged_in = values['c_user'] in home_ids
+
     # One public-group request per variant; no retries or mutations.
     variables = {'id': GROUP, 'count': 3, 'cursor': None, 'scale': 1, 'useDefaultActor': False,
                  'feedLocation': 'GROUP', 'feedType': 'DISCUSSION', 'feedbackSource': 0,
